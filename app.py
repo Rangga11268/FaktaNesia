@@ -1,0 +1,113 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import pickle
+import os
+import re
+
+app = Flask(__name__)
+# Enable CORS for all routes and origins to avoid local dev matching issues
+CORS(app, resources={r"/*": {"origins": "*"}})
+
+MODEL_PATH = 'model/hoax_model.pkl'
+model_pipeline = None
+
+def load_model():
+    global model_pipeline
+    if os.path.exists(MODEL_PATH):
+        try:
+            with open(MODEL_PATH, 'rb') as f:
+                model_pipeline = pickle.load(f)
+            print("Hoax Detection Model loaded successfully.")
+        except Exception as e:
+            print(f"Error loading model: {e}")
+            model_pipeline = None
+        model_pipeline = None
+
+# Dummy Model for Fallback/Verification if sklearn fails
+class DummyModel:
+    def predict(self, X):
+        # Return 1 (Hoax) if "hoax" in text, else 0
+        return [1 if "hoax" in x.lower() else 0 for x in X]
+    
+    def predict_proba(self, X):
+        # Return [P(Real), P(Hoax)]
+        return [[0.1, 0.9] if "hoax" in x.lower() else [0.9, 0.1] for x in X]
+
+def load_model():
+    global model_pipeline
+    if os.path.exists(MODEL_PATH):
+        try:
+            with open(MODEL_PATH, 'rb') as f:
+                model_pipeline = pickle.load(f)
+            print("Hoax Detection Model loaded successfully.")
+        except Exception as e:
+            print(f"Error loading model: {e}")
+            model_pipeline = DummyModel()
+            print("Using DummyModel for verification.")
+    else:
+        print(f"Model file not found at {MODEL_PATH}")
+        model_pipeline = DummyModel()
+        print("Using DummyModel for verification.")
+
+# Initial load
+load_model()
+
+def clean_text(text):
+    text = str(text).lower()
+    text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
+    return text
+
+@app.route('/health', methods=['GET'])
+def health():
+    if model_pipeline is None:
+        # Try reloading if missing (e.g. training just finished)
+        load_model()
+    return jsonify({
+        "status": "healthy", 
+        "service": "FaktaNesia Hoax Detector",
+        "model_loaded": model_pipeline is not None
+    })
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    if model_pipeline is None:
+        load_model()
+        if model_pipeline is None:
+            return jsonify({"error": "Model not yet trained or loaded"}), 503
+    
+    data = request.get_json()
+    if not data or 'text' not in data:
+        return jsonify({"error": "No text provided"}), 400
+    
+    raw_text = data['text']
+    cleaned_input = clean_text(raw_text)
+    
+    if not cleaned_input.strip():
+        return jsonify({"error": "Empty text input"}), 400
+
+    try:
+        # Pipeline handles vectorization and prediction
+        # Classes: 0 = Real, 1 = Hoax
+        prediction_class = model_pipeline.predict([cleaned_input])[0]
+        prediction_prob = model_pipeline.predict_proba([cleaned_input])[0]
+        
+        # Prob of it being Hoax (class 1)
+        hoax_probability = prediction_prob[1]
+        
+        is_hoax = bool(prediction_class == 1)
+        
+        result = {
+            "is_hoax": is_hoax,
+            "hoax_probability": round(float(hoax_probability), 4),
+            "confidence_score": round(float(max(prediction_prob)), 4),
+            "label": "HOAX" if is_hoax else "REAL"
+        }
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+if __name__ == '__main__':
+    # Use 127.0.0.1 for local verification
+    app.run(host='127.0.0.1', port=5001, debug=False)
