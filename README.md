@@ -2,7 +2,7 @@
 
 FaktaNesia is a modern web application designed to combat misinformation by detecting potential hoaxes in Indonesian news content. It utilizes a Machine Learning model (TF-IDF + Logistic Regression) served via a Flask backend and presents the results through a premium, glassmorphism-styled React frontend.
 
-![FaktaNesia Logo](frontend/public/assets/img/logo.png)
+![FaktaNesia Logo](assets/logo_faktanesia.png)
 
 ## Features
 
