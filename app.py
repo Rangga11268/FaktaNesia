@@ -96,22 +96,37 @@ def predict():
         
         # --- HEURISTIC BOOSTER ---
         # Machine Learning sometimes misses obvious scams. We add rule-based boosting.
-        trigger_words = [
-            "selamat anda", "pemenang", "hadiah", "tunai", "cair", 
-            "klik link", "kuota gratis", "bagi-bagi", "bagibagi",
-            "tanpa diundi", "resmi dari whatsapp", "bpjs kesehatan memberikan"
-        ]
+        trigger_definitions = {
+            "pemenang": "Promising Rewards",
+            "hadiah": "Promising Rewards",
+            "tunai": "Financial Lure",
+            "cair": "Financial Lure",
+            "selamat anda": "Phishing Hook",
+            "klik link": "Suspicious Action",
+            "kuota gratis": "Lure",
+            "bagi-bagi": "Lure",
+            "bagibagi": "Lure",
+            "tanpa diundi": "Suspicious Promise",
+            "resmi dari whatsapp": "Impersonation",
+            "bpjs kesehatan memberikan": "Impersonation",
+            "segera": "Urgency",
+            "berlaku hari ini": "Urgency"
+        }
         
         # Calculate booster score
         boost_score = 0
+        detected_triggers = []
         cleaned_lower = cleaned_input.lower()
-        for word in trigger_words:
+        
+        for word, category in trigger_definitions.items():
             if word in cleaned_lower:
-                boost_score += 0.25 # Add 25% probability for each trigger
+                if word not in detected_triggers: # Avoid duplicates
+                    detected_triggers.append({"word": word, "category": category})
+                    boost_score += 0.20 # Add probability for each trigger
         
         # Apply boost (cap at 0.99)
         if boost_score > 0:
-            print(f"Boosting score by {boost_score} due to keywords.")
+            print(f"Boosting score by {boost_score} due to keywords: {detected_triggers}")
             hoax_probability = min(0.99, hoax_probability + boost_score)
 
         # Recalculate class based on new probability
@@ -122,7 +137,8 @@ def predict():
             "is_hoax": is_hoax,
             "hoax_probability": round(float(hoax_probability), 4),
             "confidence_score": round(float(confidence), 4),
-            "label": "HOAX" if is_hoax else "REAL"
+            "label": "HOAX" if is_hoax else "REAL",
+            "triggers": detected_triggers  # List of {word, category}
         }
         
         return jsonify(result)

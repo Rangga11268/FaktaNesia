@@ -15,6 +15,7 @@ import { twMerge } from "tailwind-merge";
 
 import RecentScams from "./components/RecentScams";
 import ReportModal from "./components/ReportModal";
+import RedFlags from "./components/RedFlags";
 
 function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -151,6 +152,11 @@ function App() {
                   {loading ? "Scanning..." : "Verify Now"}
                 </button>
               </div>
+
+              {/* X-Ray Analysis Result */}
+              {result && result.triggers && (
+                <RedFlags triggers={result.triggers} />
+              )}
             </div>
 
             {/* Error Toast */}
