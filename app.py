@@ -53,9 +53,9 @@ def load_model():
 load_model()
 
 def clean_text(text):
-    text = str(text).lower()
-    text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
-    return text
+    # Simplify cleaning to match TfidfVectorizer's default behavior
+    # Just basic whitespace handling. The Vectorizer handles punctuation/tokenization.
+    return str(text).strip()
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -94,12 +94,34 @@ def predict():
         # Prob of it being Hoax (class 1)
         hoax_probability = prediction_prob[1]
         
-        is_hoax = bool(prediction_class == 1)
+        # --- HEURISTIC BOOSTER ---
+        # Machine Learning sometimes misses obvious scams. We add rule-based boosting.
+        trigger_words = [
+            "selamat anda", "pemenang", "hadiah", "tunai", "cair", 
+            "klik link", "kuota gratis", "bagi-bagi", "bagibagi",
+            "tanpa diundi", "resmi dari whatsapp", "bpjs kesehatan memberikan"
+        ]
+        
+        # Calculate booster score
+        boost_score = 0
+        cleaned_lower = cleaned_input.lower()
+        for word in trigger_words:
+            if word in cleaned_lower:
+                boost_score += 0.25 # Add 25% probability for each trigger
+        
+        # Apply boost (cap at 0.99)
+        if boost_score > 0:
+            print(f"Boosting score by {boost_score} due to keywords.")
+            hoax_probability = min(0.99, hoax_probability + boost_score)
+
+        # Recalculate class based on new probability
+        is_hoax = hoax_probability > 0.5
+        confidence = hoax_probability if is_hoax else (1 - hoax_probability)
         
         result = {
             "is_hoax": is_hoax,
             "hoax_probability": round(float(hoax_probability), 4),
-            "confidence_score": round(float(max(prediction_prob)), 4),
+            "confidence_score": round(float(confidence), 4),
             "label": "HOAX" if is_hoax else "REAL"
         }
         

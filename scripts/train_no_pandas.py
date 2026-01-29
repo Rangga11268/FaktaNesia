@@ -65,24 +65,26 @@ def main():
     all_texts = []
     all_labels = []
 
-    # Real News (Label 0)
+    # Real News (Label 0) - REDUCE to prevent overpowering Hoax class
     real_files = [
         'data/Cleaned_Antaranews_v1.csv',
         'data/Cleaned_Detik_v2.csv',
         'data/Cleaned_Kompas_v2.csv'
     ]
     for f in real_files:
-        t, l = load_data_from_csv(f, 0, limit=200)
+        # Undersample Real news to make Hoax patterns more distinct
+        t, l = load_data_from_csv(f, 0, limit=800)
         all_texts.extend(t)
         all_labels.extend(l)
 
-    # Hoax News (Label 1)
+    # Hoax News (Label 1) - MAXIMIZE
     hoax_files = [
         'data/Cleaned_TurnBackHoax_v3.csv',
         'data/komdigi_hoaks.csv'
     ]
     for f in hoax_files:
-        t, l = load_data_from_csv(f, 1, limit=300) # Slight boost to hoaxes if needed
+        # Load more Hoax data to balance classes
+        t, l = load_data_from_csv(f, 1, limit=3000) 
         all_texts.extend(t)
         all_labels.extend(l)
     
