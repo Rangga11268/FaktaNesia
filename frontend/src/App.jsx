@@ -16,6 +16,7 @@ import { twMerge } from "tailwind-merge";
 import RecentScams from "./components/RecentScams";
 import ReportModal from "./components/ReportModal";
 import RedFlags from "./components/RedFlags";
+import QuizWidget from "./components/QuizWidget";
 
 function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -85,12 +86,8 @@ function App() {
             </div>
           </div>
 
-          <div className="bento-card p-6 flex-1 hidden md:flex flex-col justify-end bg-gradient-to-b from-transparent to-blue-900/10 border-blue-900/30">
-            <h3 className="font-bold text-lg mb-2">Did You Know?</h3>
-            <p className="text-sm text-zinc-400">
-              90% of hoaxes spread via WhatsApp groups. Always verify before
-              forwarding.
-            </p>
+          <div className="flex-1 hidden md:block">
+            <QuizWidget />
           </div>
         </div>
 
