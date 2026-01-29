@@ -1,140 +1,103 @@
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Inter:wght@300;400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&family=Space+Grotesk:wght@300;400;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --glass-bg: rgba(255, 255, 255, 0.03);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-  --text-main: #ffffff;
-  --text-muted: #a1a1aa;
+  --bg-main: #09090b; /* Matte Black */
+  --bg-card: #18181b; /* Deep Zinc */
+  --bg-card-hover: #27272a; /* Lighter Zinc */
+
+  --border-main: #343438;
+
+  --accent-primary: #3b82f6; /* Solid Blue */
+  --accent-danger: #ef4444; /* Solid Red */
+  --accent-success: #10b981; /* Solid Green */
+  --accent-warning: #f59e0b; /* Solid Amber */
 }
 
 body {
   margin: 0;
-  font-family: "Inter", sans-serif;
-  background-color: #050505;
-  color: var(--text-main);
+  font-family: "Space Grotesk", sans-serif;
+  background-color: var(--bg-main);
+  color: #fff;
   overflow-x: hidden;
-  min-height: 100vh;
 }
 
-/* Ambient Background Animation */
-.ambient-light {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: -1;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.blob {
-  position: absolute;
-  filter: blur(80px);
-  opacity: 0.6;
-  animation: float 20s infinite alternate;
-}
-
-.blob-1 {
-  top: -10%;
-  left: -10%;
-  width: 50vw;
-  height: 50vw;
-  background: #4c1d95;
-  animation-delay: 0s;
-}
-
-.blob-2 {
-  bottom: -10%;
-  right: -10%;
-  width: 60vw;
-  height: 60vw;
-  background: #0f4c75;
-  animation-delay: -5s;
-}
-
-.blob-3 {
-  top: 40%;
-  left: 40%;
-  width: 40vw;
-  height: 40vw;
-  background: #be123c;
-  opacity: 0.4;
-  animation-delay: -10s;
-}
-
-@keyframes float {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-  100% {
-    transform: translate(50px, 50px) scale(1.1);
-  }
-}
-
-/* Glassmorphism Utilities */
-.glass-panel {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
-  border-radius: 24px;
-}
-
-.title-font {
+/* Typography Overrides */
+h1,
+h2,
+h3,
+h4,
+.font-heading {
   font-family: "Outfit", sans-serif;
 }
 
-/* Custom Scrollbar for Textarea */
-textarea::-webkit-scrollbar {
-  width: 8px;
-}
-textarea::-webkit-scrollbar-track {
-  background: transparent;
-}
-textarea::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-}
-textarea::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+/* Bento Grid Utilities */
+.bento-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-main);
+  border-radius: 1.5rem; /* Large rounded corners */
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-/* Glowing Button */
-.btn-glow {
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s ease;
+.bento-card:hover {
+  background-color: var(--bg-card-hover);
+  border-color: #52525b;
 }
 
-.btn-glow:hover {
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.6);
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-main);
+}
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
+
+/* Solid Button Styles */
+.btn-solid {
+  background-color: #fafafa;
+  color: #000;
+  font-weight: 700;
+  border-radius: 1rem;
+  transition: transform 0.1s;
+}
+.btn-solid:hover {
+  background-color: #fff;
   transform: translateY(-2px);
 }
-
-.btn-glow::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.2),
-    transparent
-  );
-  transition: 0.5s;
+.btn-solid:active {
+  transform: translateY(0);
 }
 
-.btn-glow:hover::after {
-  left: 100%;
+.btn-secondary {
+  background-color: #27272a;
+  color: #fff;
+  border: 1px solid #3f3f46;
+  border-radius: 1rem;
+  font-weight: 600;
+}
+.btn-secondary:hover {
+  background-color: #3f3f46;
+}
+
+/* Input Styles */
+.input-solid {
+  background-color: #09090b;
+  border: 2px solid #27272a;
+  color: white;
+  border-radius: 1rem;
+  transition: border-color 0.2s;
+}
+.input-solid:focus {
+  border-color: var(--accent-primary);
+  outline: none;
 }
