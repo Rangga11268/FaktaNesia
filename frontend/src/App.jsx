@@ -360,9 +360,16 @@ function App() {
                       animate={{ opacity: 1, y: 0 }}
                       className="mt-4 p-3.5 border-2 border-black bg-yellow-50 text-[11px] font-mono shadow-[2px_2px_0px_rgba(0,0,0,1)] text-left"
                     >
-                      <div className="flex items-center gap-1.5 font-bold text-zinc-900 mb-1">
-                        <Cpu size={12} className="text-zinc-800" />
-                        <span>💡 ANALISIS KECERDASAN SEMANTIK AI (HYBRID)</span>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5 font-bold text-zinc-900">
+                          <Cpu size={12} className="text-zinc-800" />
+                          <span>💡 ANALISIS SEMANTIK AI HYBRID</span>
+                        </div>
+                        {result.ai_source && (
+                          <span className="text-[8px] text-slate-500 border border-black/20 px-1.5 py-0.5 bg-white">
+                            via {result.ai_source}
+                          </span>
+                        )}
                       </div>
                       <p className="text-slate-700 leading-relaxed italic">
                         "{result.ai_explanation}"
