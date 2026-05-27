@@ -26,6 +26,5 @@ Desktop.ini
 .vscode/
 .idea/
 
-# Models & Data (Optional: usually large files are not committed)
 # model/*.pkl
-# data/
+data/

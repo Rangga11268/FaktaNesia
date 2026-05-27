@@ -4,7 +4,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://faktanesia-backend.onrender.com/:path*"
+      "destination": "https://darell123-faktanesia-backend.hf.space/:path*"
     },
     {
       "source": "/(.*)",
