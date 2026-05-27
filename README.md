@@ -1,80 +1,101 @@
-# FaktaNesia - AI Hoax Detector
+# 🕵️ FaktaNesia — AI Hoax Detector Gazette
 
-FaktaNesia is a modern web application designed to combat misinformation by detecting potential hoaxes in Indonesian news content. It utilizes a Machine Learning model (TF-IDF + Logistic Regression) served via a Flask backend and presents the results through a premium, glassmorphism-styled React frontend.
+> **Sistem Deteksi Disinformasi & Pola Berita Hoax Berbasis Machine Learning dengan Estetika Neo-Brutalist Newspaper**
 
-![FaktaNesia Logo](assets/logo_faktanesia.png)
+---
 
-## Features
+## 📖 Deskripsi Proyek
 
-- **Real-time Hoax Detection**: Analyze news headlines or full articles instantly.
-- **Confidence Score**: Displays the AI's confidence level in its prediction.
-- **Premium UI**: A sophisticated Glassmorphism interface with ambient lighting effects.
-- **Responsive Design**: Fully optimized for desktop and mobile devices.
+**FaktaNesia** adalah aplikasi web modern yang didesain untuk mendeteksi disinformasi dan hoax dalam artikel berita maupun pesan berantai berbahasa Indonesia. Aplikasi ini menggabungkan model **Machine Learning (TF-IDF + Logistic Regression)** dengan akurasi tinggi serta antarmuka pengguna (UI/UX) bertema **Neo-Brutalist Newspaper** yang unik, memberikan pengalaman visual yang khas layaknya membaca kliping koran taktis tempo dulu.
 
-## Tech Stack
+---
 
-- **Frontend**: React, Vite, Tailwind CSS, Framer Motion
-- **Backend**: Flask (Python), Scikit-Learn, Pandas
-- **Model**: TF-IDF Vectorizer + Logistic Regression
+## ✨ Fitur Utama
 
-## Installation
+- **🧠 Deteksi Hoax AI Akurasi Tinggi**: Memindai naskah berita secara instan dengan pipeline model klasifikasi biner TF-IDF.
+- **🔍 X-Ray Pattern Analysis**: Menyoroti kata pemicu (trigger words) yang sering digunakan dalam trik penipuan (seperti "klik link", "kuota gratis", "cair").
+- **📸 Pindai Gambar (I-Scan)**: Mengekstrak teks dari gambar/screenshot chat WhatsApp atau cuplikan media sosial menggunakan OCR (Tesseract.js) untuk dianalisis langsung oleh AI.
+- **📰 Estetika Neo-Brutalist Light**: Desain berkarakter bertema surat kabar cetak antik dengan palet kertas koran hangat (`#f5f4ef`), border tebal retro, stempel sensor stensil militer, dan tipografi surat kabar klasik (*DM Serif Display*).
+- **🎮 Hoax Buster Quiz**: Widget kuis interaktif untuk melatih kepekaan pengguna terhadap berita palsu.
 
-### Prerequisites
+---
 
+## 🛠️ Tech Stack
+
+### Frontend (Klien)
+- **Framework**: React.js dengan Vite
+- **Styling**: Tailwind CSS & Vanilla CSS (Neo-Brutalist utility styling)
+- **Animations**: Framer Motion
+- **OCR Engine**: Tesseract.js (Client-side Image scanning)
+- **Icons**: Lucide React
+
+### Backend (Server API)
+- **Framework**: Flask (Python)
+- **ML Engine**: Scikit-Learn (TF-IDF Vectorizer + Logistic Regression)
+- **Data Processor**: Pandas & Numpy
+
+---
+
+## 🧠 Detail Dataset & Akurasi Model
+
+Model dilatih ulang menggunakan total **45.477 data sampel berita** berbahasa Indonesia dari portal berita kredibel (Real News) dan basis data klasifikasi Kominfo/TurnBackHoax (Hoax News).
+
+| Kelas | Sumber Dataset |
+|---|---|
+| **Kredibel (Real)** | Antara News V3, Detik News V3, Kompas V3 |
+| **Hoax / Dusta** | TurnBackHoax V3, Laporan Aduan Hoax Kominfo (Komdigi) |
+
+### Performa Evaluasi Model
+Model berhasil mencapai metrik performa luar biasa pada split test:
+- **Akurasi Model**: `99.22%`
+- **Precision (Presisi)**: `99.00%`
+- **Recall (Sensitivitas)**: `99.00%`
+
+---
+
+## 🚀 Panduan Instalasi & Jalankan
+
+### Prasyarat
 - Python 3.8+
-- Node.js 16+
+- Node.js 18+
 
-### 1. Backend Setup
-
+### 1. Jalankan Backend (Flask)
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/faktanesia.git
-cd faktanesia
+# Pindah ke direktori utama proyek
+cd FaktaNesia
 
-# Create virtual environment (optional but recommended)
+# Buat & aktifkan virtual environment (opsional)
 python -m venv venv
 # Windows:
 venv\Scripts\activate
 # Mac/Linux:
 source venv/bin/activate
 
-# Install dependencies
+# Install dependensi
 pip install -r requirements.txt
 
-# Run the backend
+# Latih model (opsional jika ingin retrain dengan 45k+ baris)
+python scripts/train_hoax_model.py
+
+# Jalankan server
 python app.py
 ```
+Server backend akan berjalan secara default di `http://127.0.0.1:5001`.
 
-The backend server will start at `http://localhost:5001`.
-
-### 2. Frontend Setup
-
+### 2. Jalankan Frontend (Vite)
 ```bash
+# Masuk ke folder frontend
 cd frontend
 
-# Install dependencies
+# Install modul NodeJS
 npm install
 
-# Run the development server
+# Jalankan server development
 npm run dev
 ```
+Buka `http://localhost:5173` di browser Anda untuk menggunakan aplikasi.
 
-The frontend will start at `http://localhost:5173`.
+---
 
-## Usage
-
-1.  Open the web application.
-2.  Paste a news headline or article body into the text input area.
-3.  Click **Verify Content**.
-4.  View the result (HOAX or REAL) along with the confidence score.
-
-## Data Sources
-
-The model was trained on a curated dataset comprising:
-
-- **Real News**: Antara News, Detik, Kompas
-- **Hoax News**: TurnBackHoax, Kominfo (Komdigi)
-
-## License
-
-MIT License
+## 📝 Lisensi
+Proyek ini dilisensikan di bawah **MIT License**.

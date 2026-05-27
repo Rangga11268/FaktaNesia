@@ -5,12 +5,11 @@ import {
   ShieldCheck,
   ShieldAlert,
   Search,
-  Info,
   Flag,
-  Menu,
   Github,
   ScanText,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import clsx from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -51,7 +50,7 @@ function App() {
       setResult(response.data);
     } catch (err) {
       console.error(err);
-      setError("Connection failed. Backend might be sleeping.");
+      setError("Koneksi gagal. Backend Flask tidak merespon.");
     } finally {
       setLoading(false);
     }
@@ -86,12 +85,11 @@ function App() {
 
       const extractedText = result.data.text;
       if (!extractedText.trim()) {
-        setError("Could not read text from image. Try a clearer image.");
+        setError("Teks tidak terbaca dari gambar. Gunakan gambar yang lebih jelas.");
         setOcrLoading(false);
         return;
       }
 
-      // Success
       setInputText(extractedText);
       setActiveTab("text");
       setOcrLoading(false);
@@ -100,47 +98,60 @@ function App() {
       handlePredict(extractedText);
     } catch (err) {
       console.error(err);
-      setError("Failed to scan image. Please try again.");
+      setError("Gagal memindai gambar. Silakan coba lagi.");
       setOcrLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen text-white p-4 md:p-8 flex items-center justify-center">
+    <div className="min-h-screen text-[#18181b] p-4 md:p-8 bg-[#f5f4ef] flex flex-col items-center justify-start gap-4">
       <ReportModal
         isOpen={isReportOpen}
         onClose={() => setIsReportOpen(false)}
       />
 
-      <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-12 gap-6">
+      <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-12 gap-8">
+        
         {/* LEFT COLUMN: Navbar & Branding */}
         <div className="md:col-span-3 flex flex-col gap-6">
-          <div className="bento-card p-6 flex flex-col items-start bg-[#09090b]">
-            <div className="w-12 h-12 bg-white rounded-xl mb-4 p-2 flex items-center justify-center">
+          <div className="brutalist-card p-6 flex flex-col items-start bg-white relative overflow-hidden">
+            {/* Stamp Decoration */}
+            <div className="absolute -right-6 -top-6 w-20 h-20 border-4 border-dashed border-black/10 rounded-full flex items-center justify-center rotate-12 select-none pointer-events-none">
+              <span className="text-[10px] text-black/15 font-bold font-mono">VERIFIED</span>
+            </div>
+
+            <div className="w-12 h-12 bg-zinc-900 rounded-lg mb-6 p-2.5 flex items-center justify-center border border-zinc-800">
               <img
                 src="/assets/img/logo.png"
                 alt="Logo"
-                className="w-full h-full object-contain"
+                className="w-full h-full object-contain filter invert"
               />
             </div>
-            <h1 className="font-heading text-3xl font-bold">FaktaNesia.</h1>
-            <p className="text-zinc-500 text-sm mt-2">
-              AI-Powered Anti-Hoax Engine.
+            
+            <h1 className="text-4xl font-black italic tracking-tighter text-[#18181b]">
+              FaktaNesia.
+            </h1>
+            
+            <div className="h-0.5 w-full bg-[#18181b]/10 my-4" />
+            
+            <p className="text-slate-600 text-xs leading-relaxed font-mono">
+              [ ANTI-HOAX ENGINE ]
+              <span className="block mt-1">Menggunakan klasifikasi teks TF-IDF & heuristic booster untuk mendeteksi disinformasi secara instan.</span>
             </p>
 
-            <div className="mt-8 space-y-2 w-full">
+            <div className="mt-8 space-y-3 w-full font-mono">
               <button
                 onClick={() => setIsReportOpen(true)}
-                className="btn-secondary w-full py-3 flex items-center justify-center gap-2 text-sm"
+                className="btn-brutal-outline w-full py-2.5 flex items-center justify-center gap-2 text-xs font-bold"
               >
-                <Flag size={16} /> Report Content
+                <Flag size={14} /> LAPORKAN HOAX
               </button>
               <a
                 href="https://github.com/Rangga11268/FaktaNesia"
                 target="_blank"
-                className="btn-secondary w-full py-3 flex items-center justify-center gap-2 text-sm text-zinc-400 hover:text-white"
+                className="btn-brutal-outline w-full py-2.5 flex items-center justify-center gap-2 text-xs text-slate-500 hover:text-black"
               >
-                <Github size={16} /> Contribute
+                <Github size={14} /> CONTRIBUTE
               </a>
             </div>
           </div>
@@ -152,37 +163,37 @@ function App() {
 
         {/* MIDDLE COLUMN: Main Detector */}
         <div className="md:col-span-6 flex flex-col gap-6">
-          <div className="bento-card p-6 md:p-8 min-h-[500px] flex flex-col relative overflow-hidden bg-[#09090b]">
-            {/* Header with Tabs */}
-            <div className="flex justify-between items-center mb-8">
-              <div className="flex gap-4">
+          <div className="brutalist-card p-6 md:p-8 min-h-[520px] flex flex-col relative overflow-hidden bg-white">
+            
+            {/* Header with Clipper Tabs */}
+            <div className="flex justify-between items-center mb-8 border-b-2 border-black/10 pb-4">
+              <div className="flex gap-2">
                 <button
                   onClick={() => setActiveTab("text")}
                   className={cn(
-                    "flex items-center gap-2 font-heading text-xl font-bold transition",
+                    "flex items-center gap-2 font-heading px-4 py-1.5 transition text-base border-2 font-bold",
                     activeTab === "text"
-                      ? "text-blue-500 border-b-2 border-blue-500 pb-1"
-                      : "text-zinc-600 hover:text-zinc-400 pb-1",
+                      ? "bg-zinc-900 text-white border-zinc-900 shadow-[2px_2px_0px_rgba(0,0,0,0.15)]"
+                      : "text-slate-500 border-transparent hover:text-black"
                   )}
                 >
-                  <Search size={22} /> Text
+                  <Search size={16} /> Arsip Teks
                 </button>
                 <button
                   onClick={() => setActiveTab("image")}
                   className={cn(
-                    "flex items-center gap-2 font-heading text-xl font-bold transition",
+                    "flex items-center gap-2 font-heading px-4 py-1.5 transition text-base border-2 font-bold",
                     activeTab === "image"
-                      ? "text-purple-500 border-b-2 border-purple-500 pb-1"
-                      : "text-zinc-600 hover:text-zinc-400 pb-1",
+                      ? "bg-zinc-900 text-white border-zinc-900 shadow-[2px_2px_0px_rgba(0,0,0,0.15)]"
+                      : "text-slate-500 border-transparent hover:text-black"
                   )}
                 >
-                  <ScanText size={22} /> I-Scan
+                  <ScanText size={16} /> Pindai Gambar
                 </button>
               </div>
 
-              <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/50" />
-                <div className="w-3 h-3 rounded-full bg-yellow-500/20 border border-yellow-500/50" />
+              <div className="hidden sm:flex gap-1.5 font-mono text-[10px] text-slate-600 bg-slate-100 px-2.5 py-1 border border-black/5">
+                STATUS: ONLINE
               </div>
             </div>
 
@@ -192,89 +203,106 @@ function App() {
                   <textarea
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
-                    placeholder="Paste suspicious text or headline here..."
-                    className="input-solid w-full flex-1 p-6 text-lg resize-none placeholder:text-zinc-700 font-medium font-sans"
+                    placeholder="Tempel naskah berita, pesan berantai, atau judul artikel yang mencurigakan di sini..."
+                    className="input-brutal w-full flex-1 p-5 text-sm resize-none placeholder:text-slate-400 min-h-[220px]"
                   />
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                    {/* Confidence Indicator */}
-                    {result && (
+                  {/* RedFlags triggered keywords component */}
+                  {result && result.triggers && (
+                    <div className="mt-4">
+                      <RedFlags triggers={result.triggers} />
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 mt-6">
+                    {/* Bold Brutalist Verdict Stamp */}
+                    {result ? (
                       <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
+                        initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         className={cn(
-                          "rounded-xl p-4 border flex items-center gap-4",
+                          "sm:col-span-7 border-2.5 p-4 flex items-center justify-between gap-4 font-mono select-none relative overflow-hidden",
                           result.is_hoax
-                            ? "bg-red-500/10 border-red-500/20 text-red-500"
-                            : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500",
+                            ? "bg-rose-50 border-rose-600 text-rose-700 shadow-[3px_3px_0px_#e11d48]"
+                            : "bg-emerald-50 border-emerald-600 text-emerald-700 shadow-[3px_3px_0px_#059669]",
                         )}
                       >
-                        {result.is_hoax ? (
-                          <ShieldAlert size={32} />
-                        ) : (
-                          <ShieldCheck size={32} />
-                        )}
-                        <div>
-                          <div className="text-xs font-bold uppercase opacity-70">
-                            Verdict
-                          </div>
-                          <div className="font-bold text-xl">
-                            {result.label}
-                          </div>
+                        {/* Stamp texture overlay */}
+                        <div className="absolute inset-0 opacity-5 bg-[radial-gradient(#000_1px,transparent_1px)] bg-[size:3px_3px]" />
+                        
+                        <div className="relative z-10">
+                          <span className="text-[10px] block font-bold uppercase tracking-widest opacity-80">VERDIK SISTEM</span>
+                          <span className="font-heading text-3xl font-black italic tracking-tighter uppercase block leading-none mt-1">
+                            {result.is_hoax ? "DUSTA / HOAX" : "ABSAH / FAKTA"}
+                          </span>
+                        </div>
+                        <div className="relative z-10 shrink-0">
+                          {result.is_hoax ? (
+                            <ShieldAlert size={36} className="text-rose-600" />
+                          ) : (
+                            <ShieldCheck size={36} className="text-emerald-600" />
+                          )}
                         </div>
                       </motion.div>
+                    ) : (
+                      <div className="hidden sm:block sm:col-span-7 border border-dashed border-black/15 rounded p-4 flex items-center justify-center text-xs text-slate-500 font-mono bg-slate-50">
+                        Belum ada analisis dilakukan.
+                      </div>
                     )}
 
                     <button
                       onClick={() => handlePredict()}
                       disabled={loading || !inputText}
-                      className="btn-solid h-full min-h-[60px] flex items-center justify-center gap-2 text-lg hover:scale-[1.02] shadow-xl shadow-white/5"
+                      className="sm:col-span-5 btn-brutal-solid py-4 flex items-center justify-center gap-2 text-sm leading-none disabled:opacity-30 disabled:pointer-events-none"
                     >
-                      {loading ? "Scanning..." : "Verify Now"}
+                      {loading ? (
+                        <>
+                          <Loader2 className="animate-spin" size={16} />
+                          MEMINDAI...
+                        </>
+                      ) : (
+                        "VERIFIKASI"
+                      )}
                     </button>
                   </div>
-
-                  {/* X-Ray Analysis Result */}
-                  {result && result.triggers && (
-                    <RedFlags triggers={result.triggers} />
-                  )}
                 </>
               ) : (
                 /* IMAGE TAB CONTENT */
-                <div className="flex flex-col h-full items-center justify-center border-2 border-dashed border-zinc-800 rounded-2xl bg-zinc-900/30 p-8">
+                <div className="flex flex-col h-full items-center justify-center border-2 border-dashed border-black/10 bg-slate-50 p-8 min-h-[300px] relative">
                   {selectedImage ? (
                     <div className="w-full flex flex-col items-center">
-                      <div className="relative max-h-64 rounded-xl mb-6 shadow-2xl overflow-hidden group">
+                      <div className="relative max-h-60 rounded border border-black/10 mb-6 overflow-hidden bg-black/5">
                         <img
                           src={selectedImage}
                           alt="Upload"
-                          className="max-h-64 object-contain bg-black"
+                          className="max-h-60 object-contain mx-auto"
                         />
-                        {/* Scanning Effect Overlay */}
+                        
+                        {/* Brutalist Scanning Effect */}
                         {ocrLoading && (
-                          <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center">
+                          <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center font-mono">
                             <Loader2
-                              className="animate-spin text-purple-500 mb-2"
-                              size={48}
+                              className="animate-spin text-black mb-2"
+                              size={36}
                             />
-                            <div className="text-purple-400 font-bold text-lg">
-                              Scanning Text...
+                            <div className="text-black font-bold text-sm tracking-widest">
+                              OCR SCANNING...
                             </div>
-                            <div className="text-zinc-400 text-sm">
-                              {ocrProgress}%
+                            <div className="text-slate-600 text-xs mt-1">
+                              PROSES: {ocrProgress}%
                             </div>
                           </div>
                         )}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4 w-full">
+                      <div className="grid grid-cols-2 gap-4 w-full font-mono text-xs">
                         <label
                           className={cn(
-                            "btn-secondary py-3 flex items-center justify-center cursor-pointer transition",
+                            "btn-brutal-outline py-2.5 flex items-center justify-center cursor-pointer transition text-center",
                             ocrLoading && "opacity-50 pointer-events-none",
                           )}
                         >
-                          Change
+                          GANTI
                           <input
                             type="file"
                             className="hidden"
@@ -286,41 +314,30 @@ function App() {
                         <button
                           onClick={handleScanImage}
                           disabled={ocrLoading}
-                          className="btn-solid py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-none shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40"
+                          className="btn-brutal-solid py-2.5 flex items-center justify-center gap-2"
                         >
-                          <ScanText size={18} />
-                          {ocrLoading ? "Scanning..." : "Scan & Analyze"}
+                          <ScanText size={14} />
+                          PINDAI & ANALISIS
                         </button>
                       </div>
 
-                      <p className="text-xs text-zinc-500 mt-6 text-center px-4 max-w-sm">
-                        Our AI will extract text from this image and check its
-                        credibility instantly.
+                      <p className="text-[10px] text-slate-500 mt-4 text-center font-mono max-w-xs">
+                        Teks di dalam tangkapan layar akan diekstrak otomatis dan dialihkan ke penganalisis kebenaran AI.
                       </p>
-                      <div className="mt-2 text-center">
-                        <a
-                          href="https://lens.google.com/"
-                          target="_blank"
-                          className="text-[10px] text-zinc-600 hover:text-zinc-400 underline"
-                        >
-                          Or check image source on Google Lens
-                        </a>
-                      </div>
                     </div>
                   ) : (
-                    <div className="text-center">
-                      <div className="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-4 text-purple-500/50 group-hover:text-purple-500 transition">
-                        <ScanText size={32} />
+                    <div className="text-center font-mono">
+                      <div className="w-14 h-14 bg-black/5 border border-black/10 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                        <ScanText size={24} />
                       </div>
-                      <h3 className="font-bold text-lg text-zinc-200">
-                        Image Scanner
+                      <h3 className="font-heading text-lg font-bold text-slate-700">
+                        Pindai Kliping / Gambar
                       </h3>
-                      <p className="text-zinc-500 text-sm mb-6 max-w-xs mx-auto">
-                        Upload a screenshot of a news article or chat. We'll
-                        read the text and verify it.
+                      <p className="text-slate-500 text-xs mb-6 max-w-xs mx-auto leading-relaxed">
+                        Unggah tangkapan layar berita medsos atau pesan WA. Sistem akan membaca teks gambar tersebut secara instan.
                       </p>
-                      <label className="btn-solid px-8 py-3 cursor-pointer border border-zinc-700 hover:border-zinc-500">
-                        Select Image
+                      <label className="btn-brutal-solid px-6 py-2.5 cursor-pointer inline-block text-xs font-bold">
+                        PILIH GAMBAR
                         <input
                           type="file"
                           className="hidden"
@@ -336,8 +353,8 @@ function App() {
 
             {/* Error Toast */}
             {error && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-xl flex items-center gap-2 z-50">
-                <Info size={16} /> {error}
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-rose-50 border border-rose-500 text-rose-700 px-4 py-2 text-xs font-mono shadow-xl flex items-center gap-2 z-50">
+                <AlertTriangle size={14} /> {error}
               </div>
             )}
           </div>
@@ -347,7 +364,22 @@ function App() {
         <div className="md:col-span-3">
           <RecentScams />
         </div>
+
       </div>
+
+      {/* FOOTER */}
+      <footer className="w-full max-w-6xl mt-8 brutalist-card bg-white p-5 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-[10px] text-slate-500 shadow-[3px_3px_0px_#18181b]">
+        <div>
+          <span>© 2026 FAKTANESIA GAZETTE. HAK CIPTA DILINDUNGI.</span>
+          <span className="hidden sm:inline mx-2 text-slate-300">|</span>
+          <span className="block sm:inline mt-1 sm:mt-0">SISTEM ANALISIS MULTI-KLASIFIKASI AI</span>
+        </div>
+        <div className="flex gap-4">
+          <span className="border-b border-[#18181b] pb-0.5">TF-IDF BOOSTER v1.4</span>
+          <span className="border-b border-[#18181b] pb-0.5">EST. 2026</span>
+        </div>
+      </footer>
+
     </div>
   );
 }

@@ -1,103 +1,109 @@
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&family=Space+Grotesk:wght@300;400;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Share+Tech+Mono&family=Space+Grotesk:wght@300;400;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bg-main: #09090b; /* Matte Black */
-  --bg-card: #18181b; /* Deep Zinc */
-  --bg-card-hover: #27272a; /* Lighter Zinc */
+  --bg-main: #f5f4ef; /* Warm Vintage Newsprint/Paper Color */
+  --bg-paper: #ffffff; /* Pure White for contrast cards */
+  --bg-ink: #1b1c24; /* Dark ink for borders/shadows */
+  
+  --border-thick: #18181b; /* Solid dark borders */
+  --border-thin: rgba(24, 24, 27, 0.12);
 
-  --border-main: #343438;
-
-  --accent-primary: #3b82f6; /* Solid Blue */
-  --accent-danger: #ef4444; /* Solid Red */
-  --accent-success: #10b981; /* Solid Green */
-  --accent-warning: #f59e0b; /* Solid Amber */
+  --accent-cyan: #0284c7;
+  --accent-crimson: #e11d48;
+  --accent-emerald: #059669;
 }
 
 body {
   margin: 0;
-  font-family: "Space Grotesk", sans-serif;
+  font-family: "Share Tech Mono", monospace;
   background-color: var(--bg-main);
-  color: #fff;
+  background-image: 
+    radial-gradient(rgba(24, 24, 27, 0.05) 1px, transparent 0),
+    radial-gradient(rgba(24, 24, 27, 0.03) 2px, transparent 0);
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px;
+  color: #18181b;
   overflow-x: hidden;
 }
 
-/* Typography Overrides */
-h1,
-h2,
-h3,
-h4,
-.font-heading {
-  font-family: "Outfit", sans-serif;
+/* Typography */
+h1, h2, h3, h4, .font-heading {
+  font-family: "DM Serif Display", serif;
+  letter-spacing: -0.01em;
 }
 
-/* Bento Grid Utilities */
-.bento-card {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-main);
-  border-radius: 1.5rem; /* Large rounded corners */
-  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+/* Brutalist Newspaper Cards */
+.brutalist-card {
+  background-color: var(--bg-paper);
+  border: 2.5px solid var(--border-thick);
+  box-shadow: 5px 5px 0px var(--border-thick);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.bento-card:hover {
-  background-color: var(--bg-card-hover);
-  border-color: #52525b;
+.brutalist-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0px var(--border-thick);
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
 }
 ::-webkit-scrollbar-track {
   background: var(--bg-main);
 }
 ::-webkit-scrollbar-thumb {
-  background: #3f3f46;
-  border-radius: 5px;
+  background: #d6d3c7;
+  border: 1px solid var(--border-thin);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
+  background: var(--border-thick);
 }
 
-/* Solid Button Styles */
-.btn-solid {
-  background-color: #fafafa;
-  color: #000;
+/* Brutalist Buttons */
+.btn-brutal-solid {
+  background-color: var(--border-thick);
+  color: #ffffff;
+  font-family: "Share Tech Mono", monospace;
   font-weight: 700;
-  border-radius: 1rem;
-  transition: transform 0.1s;
+  border: 2.5px solid var(--border-thick);
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.15);
+  transition: all 0.15s ease;
 }
-.btn-solid:hover {
-  background-color: #fff;
-  transform: translateY(-2px);
-}
-.btn-solid:active {
-  transform: translateY(0);
-}
-
-.btn-secondary {
+.btn-brutal-solid:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.25);
   background-color: #27272a;
-  color: #fff;
-  border: 1px solid #3f3f46;
-  border-radius: 1rem;
-  font-weight: 600;
 }
-.btn-secondary:hover {
-  background-color: #3f3f46;
+.btn-brutal-solid:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.15);
 }
 
-/* Input Styles */
-.input-solid {
-  background-color: #09090b;
-  border: 2px solid #27272a;
-  color: white;
-  border-radius: 1rem;
-  transition: border-color 0.2s;
+.btn-brutal-outline {
+  background-color: transparent;
+  color: var(--border-thick);
+  border: 2.5px solid var(--border-thick);
+  font-family: "Share Tech Mono", monospace;
+  transition: all 0.15s ease;
 }
-.input-solid:focus {
-  border-color: var(--accent-primary);
+.btn-brutal-outline:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Custom Brutalist Inputs */
+.input-brutal {
+  background-color: #ffffff;
+  border: 2.5px solid var(--border-thick);
+  color: #18181b;
+  font-family: "Share Tech Mono", monospace;
+  transition: all 0.2s ease;
+}
+.input-brutal:focus {
   outline: none;
+  box-shadow: 2px 2px 0px var(--border-thick);
 }

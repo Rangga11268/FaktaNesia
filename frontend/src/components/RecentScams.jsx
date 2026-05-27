@@ -8,45 +8,45 @@ export default function RecentScams() {
   ];
 
   return (
-    <div className="bento-card p-6 h-full flex flex-col">
-      <div className="flex items-center gap-2 mb-6 text-orange-500">
-        <Flame size={24} fill="currentColor" />
-        <h2 className="font-heading text-xl font-bold text-white">
+    <div className="brutalist-card p-6 h-full flex flex-col bg-white">
+      <div className="flex items-center gap-2 mb-6 text-red-600">
+        <Flame size={20} fill="currentColor" />
+        <h2 className="font-heading text-xl font-bold text-[#18181b]">
           Trending Hoaxes
         </h2>
       </div>
 
-      <div className="space-y-4 flex-1">
+      <div className="space-y-3.5 flex-1 font-mono">
         {scams.map((scam, i) => (
           <div
             key={i}
-            className="flex items-center justify-between p-3 rounded-xl bg-black/20 hover:bg-black/40 transition cursor-pointer group"
+            className="flex items-center justify-between p-3.5 border-2 border-[#18181b] bg-[#f5f4ef]/50 hover:bg-[#f5f4ef] transition cursor-pointer group shadow-[2px_2px_0px_#18181b]"
           >
-            <div className="flex gap-4 items-center">
-              <span className="text-2xl font-bold text-zinc-700 group-hover:text-zinc-500">
+            <div className="flex gap-3.5 items-center">
+              <span className="text-xl font-bold text-slate-400 group-hover:text-black">
                 0{i + 1}
               </span>
               <div>
-                <h4 className="font-bold text-sm text-zinc-200">
+                <h4 className="font-bold text-xs text-[#18181b] leading-tight">
                   {scam.title}
                 </h4>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-zinc-900 text-white">
                     {scam.tag}
                   </span>
                 </div>
               </div>
             </div>
-            <div className="flex items-center text-xs text-zinc-500 gap-1">
-              <TrendingUp size={12} />
+            <div className="flex items-center text-[10px] text-slate-500 gap-1 shrink-0 ml-1">
+              <TrendingUp size={11} />
               {scam.views}
             </div>
           </div>
         ))}
       </div>
 
-      <button className="w-full mt-6 py-3 text-sm font-bold text-zinc-400 hover:text-white transition">
-        View All Reports
+      <button className="w-full mt-6 py-2.5 text-xs font-bold btn-brutal-outline">
+        LIHAT SEMUA LAPORAN
       </button>
     </div>
   );

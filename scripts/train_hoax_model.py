@@ -13,11 +13,15 @@ from sklearn.metrics import classification_report, accuracy_score
 REAL_NEWS_FILES = [
     'data/Cleaned_Antaranews_v1.csv',
     'data/Cleaned_Detik_v2.csv',
-    'data/Cleaned_Kompas_v2.csv'
+    'data/Cleaned_Kompas_v2.csv',
+    'data/antaranews_cleaned_v3.csv',
+    'data/detik_cleaned_v3.csv',
+    'data/kompas_cleaned_v3.csv'
 ]
 HOAX_NEWS_FILES = [
     'data/Cleaned_TurnBackHoax_v3.csv',
-    'data/komdigi_hoaks.csv'
+    'data/komdigi_hoaks.csv',
+    'data/tbh_cleaned_v3.csv'
 ]
 MODEL_DIR = 'model'
 
@@ -26,8 +30,8 @@ def load_and_label(files, label, label_name):
     for f in files:
         if os.path.exists(f):
             try:
-                # Optimization: Limit rows for faster training/verification
-                df = pd.read_csv(f, nrows=100)
+                # Load more data for higher accuracy (e.g. 10000 rows)
+                df = pd.read_csv(f, nrows=10000)
                 # Flexible column selection for text
                 # We prioritize 'content', 'isi', 'full_text' then 'title', 'judul'
                 text_col = None

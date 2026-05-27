@@ -11,18 +11,6 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 MODEL_PATH = 'model/hoax_model.pkl'
 model_pipeline = None
 
-def load_model():
-    global model_pipeline
-    if os.path.exists(MODEL_PATH):
-        try:
-            with open(MODEL_PATH, 'rb') as f:
-                model_pipeline = pickle.load(f)
-            print("Hoax Detection Model loaded successfully.")
-        except Exception as e:
-            print(f"Error loading model: {e}")
-            model_pipeline = None
-        model_pipeline = None
-
 # Dummy Model for Fallback/Verification if sklearn fails
 class DummyModel:
     def predict(self, X):
