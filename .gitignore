@@ -28,3 +28,8 @@ Desktop.ini
 
 # model/*.pkl
 data/
+
+# Logs & Cache
+*.log
+.hf_cache/
+.cache/

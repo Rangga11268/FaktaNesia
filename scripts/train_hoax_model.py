@@ -52,6 +52,7 @@ def load_and_label(files, label, label_name):
                 else:
                     bodies = pd.Series([""] * len(df))
                 
+                # JANGAN GABUNG JUDUL SAJA BILA ADA LEAK, tapi kita akan clean_text nanti.
                 temp_df = pd.DataFrame({'text': titles + " " + bodies})
                 temp_df['label'] = label
                 dfs.append(temp_df)
@@ -67,7 +68,18 @@ def load_and_label(files, label, label_name):
 
 def clean_text(text):
     text = str(text).lower()
+    
+    # MENCEGAH DATA LEAKAGE!
+    # Sumber hoaks seringkali secara eksplisit menyertakan label [HOAKS], [SALAH], atau "Penjelasan:" di bodi text-nya.
+    text = re.sub(r'\[hoaks?\]|\[salah\]|\[disinformasi\]|\[keliru\]|\[fakta\]', '', text)
+    text = re.sub(r'\b(hoaks?|salah|disinformasi|keliru|penjelasan|faktanya|fakta)\b', '', text)
+
+    # Hilangkan URL / Link
+    text = re.sub(r'http\S+|www\S+', '', text)
+    
+    # Hilangkan karakter spesial
     text = re.sub(r'[^\w\s\.,!?]', '', text) 
+    text = re.sub(r'\s+', ' ', text).strip()
     return text
 
 def main():
@@ -87,7 +99,7 @@ def main():
     if len(df_hoax) > 25000: df_hoax = df_hoax.sample(25000, random_state=42)
 
     df_full = pd.concat([df_real, df_hoax], ignore_index=True)
-    print("Cleaning text...")
+    print("Cleaning text (removing leakage)...")
     df_full['text'] = df_full['text'].apply(clean_text)
     
     X = df_full['text']
@@ -95,7 +107,7 @@ def main():
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.15, random_state=42, stratify=y)
     
-    print("Training XGBoost Model for Pattern Recognition...")
+    print("Training Anti-Leakage XGBoost Model for Pure Pattern Recognition...")
     pipeline = Pipeline([
         ('tfidf', TfidfVectorizer(max_features=25000, ngram_range=(1,3))),
         ('clf', xgb.XGBClassifier(
