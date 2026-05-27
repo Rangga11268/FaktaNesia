@@ -352,6 +352,23 @@ function App() {
                       )}
                     </button>
                   </div>
+
+                  {/* AI Explanation Box */}
+                  {result && result.ai_explanation && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 p-3.5 border-2 border-black bg-yellow-50 text-[11px] font-mono shadow-[2px_2px_0px_rgba(0,0,0,1)] text-left"
+                    >
+                      <div className="flex items-center gap-1.5 font-bold text-zinc-900 mb-1">
+                        <Cpu size={12} className="text-zinc-800" />
+                        <span>💡 ANALISIS KECERDASAN SEMANTIK AI (HYBRID)</span>
+                      </div>
+                      <p className="text-slate-700 leading-relaxed italic">
+                        "{result.ai_explanation}"
+                      </p>
+                    </motion.div>
+                  )}
                 </>
               ) : (
                 /* IMAGE TAB CONTENT */
