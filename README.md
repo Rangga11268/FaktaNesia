@@ -4,6 +4,15 @@
 
 ---
 
+## 🌐 Live Demo / Tautan Aplikasi
+
+Aplikasi ini telah dideploy secara penuh dan dapat dicoba secara langsung:
+- **Aplikasi Utama (Vercel)**: [faktanesia.vercel.app](http://faktanesia.vercel.app/)
+- **Layanan API Backend (Hugging Face Spaces)**: [darell123/faktanesia-backend](https://huggingface.co/spaces/darell123/faktanesia-backend)
+
+---
+
+
 ## 📖 Deskripsi Proyek
 
 **FaktaNesia** adalah aplikasi web modern yang didesain untuk mendeteksi disinformasi dan hoax dalam artikel berita maupun pesan berantai berbahasa Indonesia. Aplikasi ini menggabungkan model **Machine Learning (TF-IDF + Logistic Regression)** dengan akurasi tinggi serta antarmuka pengguna (UI/UX) bertema **Neo-Brutalist Newspaper** yang unik, memberikan pengalaman visual yang khas layaknya membaca kliping koran taktis tempo dulu.
