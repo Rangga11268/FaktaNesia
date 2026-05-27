@@ -7,7 +7,7 @@
       "destination": "https://darell123-faktanesia-backend.hf.space/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!assets/|robots.txt|sitemap.xml|favicon.png).*)",
       "destination": "/index.html"
     }
   ]
