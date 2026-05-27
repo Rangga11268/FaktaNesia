@@ -107,3 +107,14 @@ h1, h2, h3, h4, .font-heading {
   outline: none;
   box-shadow: 2px 2px 0px var(--border-thick);
 }
+
+/* 📰 News Ticker Marquee Animation */
+.animate-marquee {
+  display: inline-block;
+  animation: marquee 22s linear infinite;
+}
+
+@keyframes marquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}

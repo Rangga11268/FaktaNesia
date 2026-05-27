@@ -41,9 +41,9 @@ def load_model():
 load_model()
 
 def clean_text(text):
-    # Simplify cleaning to match TfidfVectorizer's default behavior
-    # Just basic whitespace handling. The Vectorizer handles punctuation/tokenization.
-    return str(text).strip()
+    text = str(text).lower()
+    text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
+    return text.strip()
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -98,7 +98,9 @@ def predict():
             "resmi dari whatsapp": "Impersonation",
             "bpjs kesehatan memberikan": "Impersonation",
             "segera": "Urgency",
-            "berlaku hari ini": "Urgency"
+            "berlaku hari ini": "Urgency",
+            "1 juni 2026": "Klaim Tanggal Palsu",
+            "dilarang beli pertalite": "Isu Subsidi BBM"
         }
         
         # Calculate booster score
@@ -117,8 +119,8 @@ def predict():
             print(f"Boosting score by {boost_score} due to keywords: {detected_triggers}")
             hoax_probability = min(0.99, hoax_probability + boost_score)
 
-        # Recalculate class based on new probability
-        is_hoax = hoax_probability > 0.5
+        # Recalculate class based on new probability (cast to native Python bool to avoid NumPy JSON serialization errors)
+        is_hoax = bool(hoax_probability > 0.5)
         confidence = hoax_probability if is_hoax else (1 - hoax_probability)
         
         result = {
@@ -135,5 +137,5 @@ def predict():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    # Use 127.0.0.1 for local verification
-    app.run(host='127.0.0.1', port=5001, debug=False)
+    # Use 127.0.0.1 for local verification with debug mode
+    app.run(host='127.0.0.1', port=5001, debug=True)
