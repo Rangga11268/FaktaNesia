@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import xgboost as xgb
 import pickle
 import os
 import re
