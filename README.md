@@ -1,10 +1,10 @@
 ---
-title: FaktaNesia — AI Hoax Detector Gazette
+title: FaktaNesia
 emoji: 🕵️
 colorFrom: indigo
 colorTo: pink
-sdk: python
-sdk_version: "3.10"
+sdk: gradio
+sdk_version: "5.34.2"
 python_version: "3.10"
 app_file: app.py
 pinned: false
