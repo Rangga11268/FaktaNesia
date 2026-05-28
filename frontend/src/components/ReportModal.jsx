@@ -1,7 +1,8 @@
 import { X, Send, FileText, PlusCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
+import axios from "axios";
 
 export default function ReportModal({
   isOpen,
@@ -13,17 +14,36 @@ export default function ReportModal({
 }) {
   const [reportText, setReportText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("POLITIK");
+  const [remoteReports, setRemoteReports] = useState(reports);
+  const [loadingList, setLoadingList] = useState(false);
+
+  useEffect(() => {
+    if (activeModalTab === "view") {
+      setLoadingList(true);
+      axios
+        .get("/api/reports?limit=50")
+        .then((res) => setRemoteReports(res.data.data || []))
+        .catch((e) => console.warn("Failed to fetch reports", e))
+        .finally(() => setLoadingList(false));
+    }
+  }, [activeModalTab]);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!reportText.trim()) return;
-
-    onAddReport(reportText, selectedCategory);
-    setReportText("");
-    // Switch to view tab to see the report
-    setActiveModalTab("view");
+    // Call backend predict endpoint which also logs the report to DB
+    axios
+      .post("/api/predict", { text: reportText })
+      .then((res) => {
+        setReportText("");
+        setActiveModalTab("view");
+      })
+      .catch((err) => {
+        console.error(err);
+        alert("Gagal mengirim laporan. Silakan coba lagi.");
+      });
   };
 
   return (
@@ -135,12 +155,14 @@ export default function ReportModal({
                 <p className="text-slate-500 text-xs mb-2">
                   Daftar laporan disinformasi yang dikirimkan oleh komunitas warga digital FaktaNesia.
                 </p>
-                {reports.length === 0 ? (
+                {loadingList ? (
+                  <div className="text-center py-8 text-xs text-slate-400 border-2 border-dashed border-black/10 bg-slate-50">Memuat laporan...</div>
+                ) : reports.length === 0 ? (
                   <div className="text-center py-8 text-xs text-slate-400 border-2 border-dashed border-black/10 bg-slate-50">
                     Belum ada laporan masuk.
                   </div>
                 ) : (
-                  reports.map((report) => (
+                  (remoteReports.length ? remoteReports : reports).map((report) => (
                     <div
                       key={report.id}
                       className="p-4 border-2 border-black bg-white shadow-[2px_2px_0px_rgba(0,0,0,1)]"
