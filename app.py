@@ -7,12 +7,20 @@ import re
 import difflib
 import requests
 import json
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
+
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 MODEL_PATH = 'model/hoax_model.pkl'
 model_pipeline = None
+db_engine = None
+
+URL_REGEX = re.compile(r'https?://\S+|www\.\S+', re.IGNORECASE)
 
 class DummyModel:
     def predict(self, X):
@@ -35,6 +43,98 @@ def load_model():
         model_pipeline = DummyModel()
 
 load_model()
+
+def init_database_engine():
+    """Initialize SQLAlchemy engine if DATABASE_URL is configured."""
+    global db_engine
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        print("[DB] DATABASE_URL not configured. Running without DB persistence.")
+        return
+    try:
+        db_engine = create_engine(database_url, pool_pre_ping=True)
+        with db_engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        print("[DB] Connected.")
+    except SQLAlchemyError as e:
+        db_engine = None
+        print(f"[DB] Connection failed: {e}")
+
+def extract_first_url(text_value):
+    match = URL_REGEX.search(str(text_value or ""))
+    if not match:
+        return None
+    found = match.group(0).strip()
+    if found.lower().startswith("www."):
+        return f"https://{found}"
+    return found
+
+def log_prediction_result(raw_text, is_hoax, confidence):
+    """Persist prediction result to user_reports for feedback loop."""
+    if db_engine is None:
+        return
+    try:
+        with db_engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO user_reports (
+                        text_content,
+                        url_submitted,
+                        ai_prediction,
+                        ai_confidence
+                    ) VALUES (
+                        :text_content,
+                        :url_submitted,
+                        :ai_prediction,
+                        :ai_confidence
+                    )
+                    """
+                ),
+                {
+                    "text_content": raw_text,
+                    "url_submitted": extract_first_url(raw_text),
+                    "ai_prediction": "HOAX" if is_hoax else "REAL",
+                    "ai_confidence": float(confidence),
+                },
+            )
+    except SQLAlchemyError as e:
+        print(f"[DB] Failed to write user_reports: {e}")
+
+def bump_trending_title(title):
+    """Upsert title usage counter in trending_hoaxes."""
+    if db_engine is None:
+        return
+    normalized_title = re.sub(r'\s+', ' ', str(title or "").strip())[:300]
+    if not normalized_title:
+        return
+    try:
+        with db_engine.begin() as conn:
+            updated = conn.execute(
+                text(
+                    """
+                    UPDATE trending_hoaxes
+                    SET search_count = search_count + 1,
+                        last_searched_at = CURRENT_TIMESTAMP
+                    WHERE hoax_title = :hoax_title
+                    """
+                ),
+                {"hoax_title": normalized_title},
+            )
+            if updated.rowcount == 0:
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO trending_hoaxes (hoax_title, search_count, last_searched_at)
+                        VALUES (:hoax_title, 1, CURRENT_TIMESTAMP)
+                        """
+                    ),
+                    {"hoax_title": normalized_title},
+                )
+    except SQLAlchemyError as e:
+        print(f"[DB] Failed to update trending_hoaxes: {e}")
+
+init_database_engine()
 
 def normalize_text(text):
     """Normalize text: lowercase, remove punctuation, normalize common typos."""
@@ -356,14 +456,60 @@ def check_with_gemini(text):
 def health():
     if model_pipeline is None:
         load_model()
+    db_ok = False
+    if db_engine is not None:
+        try:
+            with db_engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            db_ok = True
+        except SQLAlchemyError:
+            db_ok = False
     return jsonify({
         "status": "healthy",
         "service": "FaktaNesia Hoax Detector v2",
         "model_loaded": model_pipeline is not None,
         "openrouter_active": os.environ.get("OPENROUTER_API_KEY") is not None,
         "gemini_fallback_active": os.environ.get("GEMINI_API_KEY") is not None,
+        "database_configured": os.environ.get("DATABASE_URL") is not None,
+        "database_connected": db_ok,
+        "safe_browsing_configured": os.environ.get("GOOGLE_SAFE_BROWSING_API_KEY") is not None,
         "trigger_count": len(TRIGGER_DATABASE)
     })
+
+@app.route('/api/trending-hoaxes', methods=['GET'])
+def get_trending_hoaxes():
+    if db_engine is None:
+        return jsonify({"error": "Database not configured"}), 503
+    limit = request.args.get('limit', default=10, type=int)
+    limit = max(1, min(limit, 50))
+    try:
+        with db_engine.connect() as conn:
+            rows = conn.execute(
+                text(
+                    """
+                    SELECT hoax_title, search_count, last_searched_at
+                    FROM trending_hoaxes
+                    ORDER BY search_count DESC, last_searched_at DESC
+                    LIMIT :limit
+                    """
+                ),
+                {"limit": limit},
+            ).mappings().all()
+
+        return jsonify({
+            "count": len(rows),
+            "data": [
+                {
+                    "title": row["hoax_title"],
+                    "search_count": row["search_count"],
+                    "last_searched_at": str(row["last_searched_at"]),
+                }
+                for row in rows
+            ],
+        })
+    except SQLAlchemyError as e:
+        print(f"[DB] Failed to read trending_hoaxes: {e}")
+        return jsonify({"error": "Failed to fetch trending hoaxes"}), 500
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -421,6 +567,10 @@ def predict():
             is_hoax = bool(ai_result.get("is_hoax", is_hoax))
             ai_explanation = ai_result.get("explanation")
             confidence = 0.97
+
+        # Persist prediction and trending after final decision is computed.
+        log_prediction_result(raw_text, is_hoax, confidence)
+        bump_trending_title(raw_text)
 
         return jsonify({
             "is_hoax": is_hoax,
