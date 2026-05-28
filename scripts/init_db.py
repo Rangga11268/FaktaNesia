@@ -45,6 +45,15 @@ CREATE TABLE IF NOT EXISTS trending_hoaxes (
     search_count INT DEFAULT 1,
     last_searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 4. Table for URL Safety Checks (Google Safe Browsing)
+CREATE TABLE IF NOT EXISTS url_checks (
+    id SERIAL PRIMARY KEY,
+    url TEXT NOT NULL,
+    is_threat BOOLEAN,
+    raw_json JSONB,
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 print("Creating tables for FaktaNesia v2.0...")

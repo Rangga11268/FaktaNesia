@@ -69,6 +69,53 @@ def extract_first_url(text_value):
         return f"https://{found}"
     return found
 
+def check_url_with_google(url):
+    """Check URL with Google Safe Browsing API v4. Returns dict or None if not configured."""
+    api_key = os.environ.get("GOOGLE_SAFE_BROWSING_API_KEY")
+    if not api_key or not url:
+        return None
+    payload = {
+        "client": {"clientId": "faktanesia", "clientVersion": "1.0"},
+        "threatInfo": {
+            "threatTypes": ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE", "POTENTIALLY_HARMFUL_APPLICATION"],
+            "platformTypes": ["ANY_PLATFORM"],
+            "threatEntryTypes": ["URL"],
+            "threatEntries": [{"url": url}]
+        }
+    }
+    try:
+        resp = requests.post(
+            f"https://safebrowsing.googleapis.com/v4/threatMatches:find?key={api_key}",
+            json=payload,
+            timeout=6
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            is_threat = bool(data.get("matches"))
+            return {"is_threat": is_threat, "raw": data}
+        else:
+            print(f"[SafeBrowsing] HTTP {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        print(f"[SafeBrowsing] Error: {e}")
+    return None
+
+def log_url_check(url, result):
+    if db_engine is None:
+        return
+    try:
+        with db_engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO url_checks (url, is_threat, raw_json)
+                    VALUES (:url, :is_threat, :raw_json)
+                    """
+                ),
+                {"url": url, "is_threat": bool(result.get("is_threat")) if result else None, "raw_json": json.dumps(result.get("raw")) if result else None},
+            )
+    except SQLAlchemyError as e:
+        print(f"[DB] Failed to write url_checks: {e}")
+
 def log_prediction_result(raw_text, is_hoax, confidence):
     """Persist prediction result to user_reports for feedback loop."""
     if db_engine is None:
@@ -568,6 +615,13 @@ def predict():
             ai_explanation = ai_result.get("explanation")
             confidence = 0.97
 
+        # URL safety check (Google Safe Browsing)
+        first_url = extract_first_url(raw_text)
+        url_safety = None
+        if first_url:
+            url_safety = check_url_with_google(first_url)
+            log_url_check(first_url, url_safety)
+
         # Persist prediction and trending after final decision is computed.
         log_prediction_result(raw_text, is_hoax, confidence)
         bump_trending_title(raw_text)
@@ -579,7 +633,9 @@ def predict():
             "label": "HOAX" if is_hoax else "REAL",
             "triggers": clean_triggers,
             "ai_explanation": ai_explanation,
-            "ai_source": ai_source
+            "ai_source": ai_source,
+            "url_checked": first_url,
+            "url_safety": url_safety
         })
 
     except Exception as e:
