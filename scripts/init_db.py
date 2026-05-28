@@ -38,6 +38,13 @@ CREATE TABLE IF NOT EXISTS user_reports (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Add review columns for admin moderation if they do not exist
+ALTER TABLE user_reports
+    ADD COLUMN IF NOT EXISTS reviewed BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS reviewer VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS review_note TEXT,
+    ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP;
+
 -- 3. Table for Trending Hoaxes
 CREATE TABLE IF NOT EXISTS trending_hoaxes (
     id SERIAL PRIMARY KEY,

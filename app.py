@@ -60,6 +60,85 @@ def init_database_engine():
         db_engine = None
         print(f"[DB] Connection failed: {e}")
 
+def admin_auth_ok(req):
+    """Simple admin auth using ADMIN_TOKEN env var passed via header X-Admin-Token."""
+    token = os.environ.get("ADMIN_TOKEN")
+    if not token:
+        return False
+    header = req.headers.get("X-Admin-Token")
+    return header == token
+
+@app.route('/api/reports', methods=['GET'])
+def list_reports():
+    """List user reports (paginated). Admin-only by default if ADMIN_TOKEN set."""
+    if os.environ.get("ADMIN_TOKEN") and not admin_auth_ok(request):
+        return jsonify({"error": "admin credentials required"}), 403
+    limit = min(100, max(1, int(request.args.get('limit', 25))))
+    offset = max(0, int(request.args.get('offset', 0)))
+    try:
+        if db_engine is None:
+            return jsonify({"error": "Database not configured"}), 503
+        with db_engine.connect() as conn:
+            rows = conn.execute(
+                text("SELECT id, text_content, url_submitted, ai_prediction, ai_confidence, user_votes_as_hoax, user_votes_as_real, reviewed, reviewer, review_note, reviewed_at, created_at FROM user_reports ORDER BY created_at DESC LIMIT :limit OFFSET :offset"),
+                {"limit": limit, "offset": offset}
+            ).mappings().all()
+        return jsonify({"count": len(rows), "data": [dict(r) for r in rows]})
+    except SQLAlchemyError as e:
+        print(f"[DB] Failed to list reports: {e}")
+        return jsonify({"error": "failed to list reports"}), 500
+
+@app.route('/api/reports/<int:report_id>', methods=['GET'])
+def get_report(report_id):
+    if os.environ.get("ADMIN_TOKEN") and not admin_auth_ok(request):
+        return jsonify({"error": "admin credentials required"}), 403
+    try:
+        if db_engine is None:
+            return jsonify({"error": "Database not configured"}), 503
+        with db_engine.connect() as conn:
+            row = conn.execute(text("SELECT * FROM user_reports WHERE id = :id"), {"id": report_id}).mappings().first()
+        if not row:
+            return jsonify({"error": "not found"}), 404
+        return jsonify(dict(row))
+    except SQLAlchemyError as e:
+        print(f"[DB] Failed to get report: {e}")
+        return jsonify({"error": "failed to fetch report"}), 500
+
+@app.route('/api/reports/<int:report_id>/vote', methods=['POST'])
+def vote_report(report_id):
+    data = request.get_json() or {}
+    vote = data.get('vote')  # expected 'hoax' or 'real'
+    if vote not in ('hoax', 'real'):
+        return jsonify({"error": "invalid vote"}), 400
+    column = 'user_votes_as_hoax' if vote == 'hoax' else 'user_votes_as_real'
+    try:
+        if db_engine is None:
+            return jsonify({"error": "Database not configured"}), 503
+        with db_engine.begin() as conn:
+            conn.execute(text(f"UPDATE user_reports SET {column} = {column} + 1 WHERE id = :id"), {"id": report_id})
+        return jsonify({"ok": True})
+    except SQLAlchemyError as e:
+        print(f"[DB] Failed to vote report: {e}")
+        return jsonify({"error": "failed to vote"}), 500
+
+@app.route('/api/reports/<int:report_id>/review', methods=['POST'])
+def review_report(report_id):
+    if not admin_auth_ok(request):
+        return jsonify({"error": "admin credentials required"}), 403
+    data = request.get_json() or {}
+    reviewed = bool(data.get('reviewed', True))
+    reviewer = data.get('reviewer') or 'admin'
+    note = data.get('note')
+    try:
+        if db_engine is None:
+            return jsonify({"error": "Database not configured"}), 503
+        with db_engine.begin() as conn:
+            conn.execute(text("UPDATE user_reports SET reviewed = :reviewed, reviewer = :reviewer, review_note = :note, reviewed_at = CURRENT_TIMESTAMP WHERE id = :id"), {"reviewed": reviewed, "reviewer": reviewer, "note": note, "id": report_id})
+        return jsonify({"ok": True})
+    except SQLAlchemyError as e:
+        print(f"[DB] Failed to review report: {e}")
+        return jsonify({"error": "failed to mark review"}), 500
+
 def extract_first_url(text_value):
     match = URL_REGEX.search(str(text_value or ""))
     if not match:
