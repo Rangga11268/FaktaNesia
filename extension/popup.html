@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Share+Tech+Mono&display=swap');
+
+    body {
+      width: 320px;
+      margin: 0;
+      padding: 12px;
+      background-color: #f5f4ef;
+      font-family: 'Share Tech Mono', monospace;
+      color: #0f172a;
+      border: 2px solid #000;
+    }
+
+    /* Gazette header */
+    .header {
+      text-align: center;
+      border-bottom: 2px solid #000;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+    .header h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 24px;
+      margin: 0;
+      font-weight: 900;
+      font-style: italic;
+      letter-spacing: -0.5px;
+      text-transform: uppercase;
+    }
+    .header .meta {
+      font-size: 8px;
+      opacity: 0.7;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 70px;
+      border: 2px solid #000;
+      background: #fff;
+      padding: 6px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      resize: none;
+      box-sizing: border-box;
+      outline: none;
+    }
+    textarea:focus {
+      background-color: #fafaf9;
+    }
+
+    button {
+      width: 100%;
+      background-color: #000;
+      color: #fff;
+      border: 2px solid #000;
+      padding: 8px 12px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+      cursor: pointer;
+      margin-top: 8px;
+      box-shadow: 2px 2px 0px rgba(0,0,0,0.2);
+      transition: all 0.15s ease;
+    }
+    button:hover {
+      background-color: #1e293b;
+      box-shadow: 1px 1px 0px rgba(0,0,0,0.15);
+    }
+    button:active {
+      transform: translate(1px, 1px);
+      box-shadow: 0px 0px 0px rgba(0,0,0,0);
+    }
+
+    /* Result Box */
+    .result-container {
+      margin-top: 12px;
+      display: none;
+    }
+
+    .verdict-stamp {
+      border: 2px solid #000;
+      padding: 8px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .verdict-stamp.hoax {
+      background-color: #ffe4e6;
+      border-color: #e11d48;
+      color: #9f1239;
+      box-shadow: 3px 3px 0px #e11d48;
+    }
+    .verdict-stamp.real {
+      background-color: #d1fae5;
+      border-color: #059669;
+      color: #065f46;
+      box-shadow: 3px 3px 0px #059669;
+    }
+    .verdict-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 18px;
+      font-weight: 900;
+      font-style: italic;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .explanation-box {
+      background-color: #fef08a;
+      border: 2px solid #000;
+      padding: 8px;
+      font-size: 9px;
+      line-height: 1.4;
+      text-align: left;
+      box-shadow: 2px 2px 0px #000;
+    }
+    .explanation-title {
+      font-weight: bold;
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .loader {
+      display: none;
+      text-align: center;
+      font-size: 10px;
+      font-weight: bold;
+      margin-top: 10px;
+      text-transform: uppercase;
+    }
+    .error-msg {
+      display: none;
+      background-color: #fee2e2;
+      border: 2px solid #ef4444;
+      color: #b91c1c;
+      padding: 6px;
+      font-size: 9px;
+      margin-top: 8px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>FaktaNesia.</h1>
+    <div class="meta">AI Hoax Detector Gazette</div>
+  </div>
+
+  <textarea id="inputText" placeholder="Tulis atau tempel teks berita/pesan di sini untuk diverifikasi..."></textarea>
+  <button id="scanBtn">Verifikasi Teks</button>
+  
+  <div id="loader" class="loader">Memindai Teks...</div>
+  <div id="errorBox" class="error-msg"></div>
+
+  <div id="resultBox" class="result-container">
+    <div id="verdictStamp" class="verdict-stamp">
+      <div style="font-size: 7px; font-weight: bold; letter-spacing: 1px;" id="verdictMeta">VERDIK SISTEM</div>
+      <div id="verdictTitle" class="verdict-title">HOAX / DUSTA</div>
+    </div>
+    
+    <div class="explanation-box">
+      <div class="explanation-title">
+        <span>💡 ANALISIS AI</span>
+        <span id="aiSource" style="font-size: 7px; font-weight: normal; opacity: 0.6;"></span>
+      </div>
+      <p id="explanationText" style="margin: 0; font-style: italic;"></p>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

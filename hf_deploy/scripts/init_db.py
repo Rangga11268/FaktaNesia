@@ -33,7 +33,6 @@ CREATE TABLE IF NOT EXISTS user_reports (
     url_submitted TEXT,
     ai_prediction VARCHAR(50),
     ai_confidence FLOAT,
-    category VARCHAR(100),
     user_votes_as_hoax INT DEFAULT 0,
     user_votes_as_real INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -44,8 +43,7 @@ ALTER TABLE user_reports
     ADD COLUMN IF NOT EXISTS reviewed BOOLEAN DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS reviewer VARCHAR(100),
     ADD COLUMN IF NOT EXISTS review_note TEXT,
-    ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP,
-    ADD COLUMN IF NOT EXISTS category VARCHAR(100);
+    ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP;
 
 -- 3. Table for Trending Hoaxes
 CREATE TABLE IF NOT EXISTS trending_hoaxes (

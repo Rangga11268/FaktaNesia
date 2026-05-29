@@ -1,0 +1,14 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://darell123-faktanesia-backend.hf.space/:path*"
+    },
+    {
+      "source": "/((?!assets/|robots.txt|sitemap.xml|favicon.png).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
