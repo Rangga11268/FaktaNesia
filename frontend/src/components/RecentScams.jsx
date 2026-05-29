@@ -30,7 +30,7 @@ export default function RecentScams({ onReportClick }) {
         <h2 className="font-heading text-lg font-bold text-[#18181b]">Trending Hoaxes</h2>
       </div>
 
-      <div className="space-y-3 flex-1 font-mono">
+      <div className="space-y-3 flex-1 font-mono max-h-[250px] overflow-y-auto pr-1 select-none">
         {loading && <div className="text-xs text-slate-500">Memuat trending...</div>}
         {!loading && scams.length === 0 && (
           <div className="text-xs text-slate-500">Belum ada data trending.</div>

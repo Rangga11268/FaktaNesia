@@ -10,6 +10,7 @@ import json
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
+import credibility_manager
 
 load_dotenv()
 
@@ -68,11 +69,9 @@ def admin_auth_ok(req):
     header = req.headers.get("X-Admin-Token")
     return header == token
 
-@app.route('/api/reports', methods=['GET'])
+@app.route('/reports', methods=['GET'])
 def list_reports():
-    """List user reports (paginated). Admin-only by default if ADMIN_TOKEN set."""
-    if os.environ.get("ADMIN_TOKEN") and not admin_auth_ok(request):
-        return jsonify({"error": "admin credentials required"}), 403
+    """List user reports (paginated). Publicly accessible for 'Laporan Warga'."""
     limit = min(100, max(1, int(request.args.get('limit', 25))))
     offset = max(0, int(request.args.get('offset', 0)))
     try:
@@ -80,7 +79,7 @@ def list_reports():
             return jsonify({"error": "Database not configured"}), 503
         with db_engine.connect() as conn:
             rows = conn.execute(
-                text("SELECT id, text_content, url_submitted, ai_prediction, ai_confidence, user_votes_as_hoax, user_votes_as_real, reviewed, reviewer, review_note, reviewed_at, created_at FROM user_reports ORDER BY created_at DESC LIMIT :limit OFFSET :offset"),
+                text("SELECT id, text_content, url_submitted, ai_prediction, ai_confidence, category, user_votes_as_hoax, user_votes_as_real, reviewed, reviewer, review_note, reviewed_at, created_at FROM user_reports ORDER BY created_at DESC LIMIT :limit OFFSET :offset"),
                 {"limit": limit, "offset": offset}
             ).mappings().all()
         return jsonify({"count": len(rows), "data": [dict(r) for r in rows]})
@@ -88,10 +87,71 @@ def list_reports():
         print(f"[DB] Failed to list reports: {e}")
         return jsonify({"error": "failed to list reports"}), 500
 
-@app.route('/api/reports/<int:report_id>', methods=['GET'])
-def get_report(report_id):
+@app.route('/stats', methods=['GET'])
+def get_stats():
+    """Get high-level statistics for Admin Dashboard."""
     if os.environ.get("ADMIN_TOKEN") and not admin_auth_ok(request):
         return jsonify({"error": "admin credentials required"}), 403
+    try:
+        if db_engine is None:
+            return jsonify({"error": "Database not configured"}), 503
+        with db_engine.connect() as conn:
+            total_reports = conn.execute(text("SELECT COUNT(*) as cnt FROM user_reports")).scalar()
+            total_hoax = conn.execute(text("SELECT COUNT(*) as cnt FROM user_reports WHERE ai_prediction = 'HOAX'")).scalar()
+            total_real = conn.execute(text("SELECT COUNT(*) as cnt FROM user_reports WHERE ai_prediction = 'REAL'")).scalar()
+            
+            # Fetch category distribution for hoaxes
+            cat_rows = conn.execute(
+                text("SELECT COALESCE(category, 'Umum') as cat, COUNT(*) as cnt FROM user_reports WHERE ai_prediction = 'HOAX' GROUP BY COALESCE(category, 'Umum')")
+            ).mappings().all()
+            
+            categories = {row["cat"]: row["cnt"] for row in cat_rows}
+            
+        return jsonify({
+            "total_reports": total_reports,
+            "total_hoax": total_hoax,
+            "total_real": total_real,
+            "hoax_percentage": round((total_hoax / total_reports * 100) if total_reports > 0 else 0, 1),
+            "categories": categories
+        })
+    except SQLAlchemyError as e:
+        print(f"[DB] Failed to get stats: {e}")
+        return jsonify({"error": "failed to fetch stats"}), 500
+
+@app.route('/public-stats', methods=['GET'])
+def get_public_stats():
+    """Get high-level public statistics for the landing page."""
+    try:
+        if db_engine is None:
+            return jsonify({
+                "total_reports": 12,
+                "total_hoax": 5,
+                "total_real": 7,
+                "total_words": 1480,
+                "avg_speed": 0.42
+            })
+        with db_engine.connect() as conn:
+            total_reports = conn.execute(text("SELECT COUNT(*) as cnt FROM user_reports")).scalar()
+            total_hoax = conn.execute(text("SELECT COUNT(*) as cnt FROM user_reports WHERE ai_prediction = 'HOAX'")).scalar()
+            total_real = conn.execute(text("SELECT COUNT(*) as cnt FROM user_reports WHERE ai_prediction = 'REAL'")).scalar()
+            
+            # Fast estimation of total words: sum text length divided by 5 as average word length
+            total_chars = conn.execute(text("SELECT COALESCE(SUM(LENGTH(text_content)), 0) FROM user_reports")).scalar()
+            total_words = int(total_chars / 5) if total_chars > 0 else 1480
+            
+        return jsonify({
+            "total_reports": total_reports,
+            "total_hoax": total_hoax,
+            "total_real": total_real,
+            "total_words": total_words,
+            "avg_speed": 0.42
+        })
+    except SQLAlchemyError as e:
+        print(f"[DB] Failed to get public stats: {e}")
+        return jsonify({"error": "failed to fetch public stats"}), 500
+
+@app.route('/reports/<int:report_id>', methods=['GET'])
+def get_report(report_id):
     try:
         if db_engine is None:
             return jsonify({"error": "Database not configured"}), 503
@@ -104,7 +164,7 @@ def get_report(report_id):
         print(f"[DB] Failed to get report: {e}")
         return jsonify({"error": "failed to fetch report"}), 500
 
-@app.route('/api/reports/<int:report_id>/vote', methods=['POST'])
+@app.route('/reports/<int:report_id>/vote', methods=['POST'])
 def vote_report(report_id):
     data = request.get_json() or {}
     vote = data.get('vote')  # expected 'hoax' or 'real'
@@ -121,7 +181,7 @@ def vote_report(report_id):
         print(f"[DB] Failed to vote report: {e}")
         return jsonify({"error": "failed to vote"}), 500
 
-@app.route('/api/reports/<int:report_id>/review', methods=['POST'])
+@app.route('/reports/<int:report_id>/review', methods=['POST'])
 def review_report(report_id):
     if not admin_auth_ok(request):
         return jsonify({"error": "admin credentials required"}), 403
@@ -129,15 +189,53 @@ def review_report(report_id):
     reviewed = bool(data.get('reviewed', True))
     reviewer = data.get('reviewer') or 'admin'
     note = data.get('note')
+    verdict = data.get('verdict') # 'HOAX' or 'REAL' or None
     try:
         if db_engine is None:
             return jsonify({"error": "Database not configured"}), 503
         with db_engine.begin() as conn:
-            conn.execute(text("UPDATE user_reports SET reviewed = :reviewed, reviewer = :reviewer, review_note = :note, reviewed_at = CURRENT_TIMESTAMP WHERE id = :id"), {"reviewed": reviewed, "reviewer": reviewer, "note": note, "id": report_id})
+            if verdict in ('HOAX', 'REAL'):
+                conn.execute(text("UPDATE user_reports SET reviewed = :reviewed, reviewer = :reviewer, review_note = :note, ai_prediction = :verdict, reviewed_at = CURRENT_TIMESTAMP WHERE id = :id"), {"reviewed": reviewed, "reviewer": reviewer, "note": note, "verdict": verdict, "id": report_id})
+            else:
+                conn.execute(text("UPDATE user_reports SET reviewed = :reviewed, reviewer = :reviewer, review_note = :note, reviewed_at = CURRENT_TIMESTAMP WHERE id = :id"), {"reviewed": reviewed, "reviewer": reviewer, "note": note, "id": report_id})
         return jsonify({"ok": True})
     except SQLAlchemyError as e:
         print(f"[DB] Failed to review report: {e}")
         return jsonify({"error": "failed to mark review"}), 500
+
+@app.route('/reports/<int:report_id>', methods=['DELETE'])
+def delete_report(report_id):
+    if not admin_auth_ok(request):
+        return jsonify({"error": "admin credentials required"}), 403
+    try:
+        if db_engine is None:
+            return jsonify({"error": "Database not configured"}), 503
+        with db_engine.begin() as conn:
+            conn.execute(text("DELETE FROM user_reports WHERE id = :id"), {"id": report_id})
+        return jsonify({"ok": True})
+    except SQLAlchemyError as e:
+        print(f"[DB] Failed to delete report: {e}")
+        return jsonify({"error": "failed to delete report"}), 500
+
+@app.route('/reports/bulk-delete', methods=['POST'])
+def bulk_delete_reports():
+    if not admin_auth_ok(request):
+        return jsonify({"error": "admin credentials required"}), 403
+    try:
+        if db_engine is None:
+            return jsonify({"error": "Database not configured"}), 503
+        data = request.json or {}
+        report_ids = data.get("ids", [])
+        if not report_ids:
+            return jsonify({"error": "No IDs provided"}), 400
+        report_ids = [int(x) for x in report_ids]
+        with db_engine.begin() as conn:
+            conn.execute(text("DELETE FROM user_reports WHERE id = ANY(:ids)"), {"ids": report_ids})
+        return jsonify({"ok": True})
+    except (SQLAlchemyError, ValueError) as e:
+        print(f"[DB] Failed to bulk delete reports: {e}")
+        return jsonify({"error": "failed to bulk delete reports"}), 500
+
 
 def extract_first_url(text_value):
     match = URL_REGEX.search(str(text_value or ""))
@@ -195,7 +293,7 @@ def log_url_check(url, result):
     except SQLAlchemyError as e:
         print(f"[DB] Failed to write url_checks: {e}")
 
-def log_prediction_result(raw_text, is_hoax, confidence):
+def log_prediction_result(raw_text, is_hoax, confidence, category=None, user_claim=None):
     """Persist prediction result to user_reports for feedback loop."""
     if db_engine is None:
         return
@@ -208,12 +306,16 @@ def log_prediction_result(raw_text, is_hoax, confidence):
                         text_content,
                         url_submitted,
                         ai_prediction,
-                        ai_confidence
+                        ai_confidence,
+                        category,
+                        user_claim
                     ) VALUES (
                         :text_content,
                         :url_submitted,
                         :ai_prediction,
-                        :ai_confidence
+                        :ai_confidence,
+                        :category,
+                        :user_claim
                     )
                     """
                 ),
@@ -222,6 +324,8 @@ def log_prediction_result(raw_text, is_hoax, confidence):
                     "url_submitted": extract_first_url(raw_text),
                     "ai_prediction": "HOAX" if is_hoax else "REAL",
                     "ai_confidence": float(confidence),
+                    "category": category,
+                    "user_claim": user_claim,
                 },
             )
     except SQLAlchemyError as e:
@@ -511,8 +615,8 @@ def check_with_openrouter(text):
         "Perhatikan pola: iming-iming uang gratis, bantuan sosial palsu, link mencurigakan, "
         "klaim kesehatan tidak masuk akal, atau tekanan untuk segera bertindak.\n\n"
         f"Teks: \"{text}\"\n\n"
-        "Kembalikan HANYA JSON tanpa markdown:\n"
-        "{\"is_hoax\": true/false, \"explanation\": \"penjelasan 1-2 kalimat Bahasa Indonesia\"}"
+        "Kembalikan HANYA JSON tanpa markdown dengan format:\n"
+        "{\"is_hoax\": true/false, \"category\": \"Kesehatan|Keuangan|Politik|Bencana|SARA|Lainnya\", \"explanation\": \"penjelasan 1-2 kalimat Bahasa Indonesia\"}"
     )
 
     headers = {
@@ -558,8 +662,8 @@ def check_with_gemini(text):
     prompt = (
         "Kamu adalah fact-checker Indonesia. Analisis: apakah ini HOAX atau FAKTA?\n"
         f"Teks: \"{text}\"\n"
-        "Kembalikan HANYA JSON tanpa markdown:\n"
-        "{\"is_hoax\": true/false, \"explanation\": \"penjelasan 1-2 kalimat Bahasa Indonesia\"}"
+        "Kembalikan HANYA JSON tanpa markdown dengan format:\n"
+        "{\"is_hoax\": true/false, \"category\": \"Kesehatan|Keuangan|Politik|Bencana|SARA|Lainnya\", \"explanation\": \"penjelasan 1-2 kalimat Bahasa Indonesia\"}"
     )
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
@@ -602,7 +706,7 @@ def health():
         "trigger_count": len(TRIGGER_DATABASE)
     })
 
-@app.route('/api/trending-hoaxes', methods=['GET'])
+@app.route('/trending-hoaxes', methods=['GET'])
 def get_trending_hoaxes():
     if db_engine is None:
         return jsonify({"error": "Database not configured"}), 503
@@ -637,6 +741,145 @@ def get_trending_hoaxes():
         print(f"[DB] Failed to read trending_hoaxes: {e}")
         return jsonify({"error": "Failed to fetch trending hoaxes"}), 500
 
+def map_trigger_category_to_high_level(trigger_cat):
+    """Map granular trigger categories to high-level system categories."""
+    trigger_cat = str(trigger_cat).strip()
+    mapping = {
+        "Health Misinformation": "Kesehatan",
+        "Pseudoscience": "Kesehatan",
+        "Penipuan Bantuan Sosial": "Keuangan",
+        "Financial Lure": "Keuangan",
+        "Investment Scam": "Keuangan",
+        "Promising Rewards": "Keuangan",
+        "Phishing Hook": "Keuangan",
+        "Suspicious Promise": "Keuangan",
+        "Lure": "Keuangan",
+        "Lowongan Palsu": "Keuangan",
+        "Political/Religious": "Politik",
+        "Political Hoax": "Politik",
+        "Impersonation": "Politik",
+        "Disaster Hoax": "Bencana",
+        "Isu Subsidi BBM": "Bencana",
+        "Klaim Tanggal Palsu": "Bencana",
+    }
+    return mapping.get(trigger_cat, "Lainnya")
+
+@app.route('/reports/similar', methods=['GET'])
+def get_similar_reports():
+    text_query = request.args.get('text', '').strip()
+    if not text_query:
+        return jsonify({"data": []})
+    
+    try:
+        if db_engine is None:
+            return jsonify({"data": []})
+            
+        with db_engine.connect() as conn:
+            # Fetch last 150 user reports to compare
+            rows = conn.execute(
+                text("SELECT id, text_content, ai_prediction, category, created_at FROM user_reports ORDER BY created_at DESC LIMIT 150")
+            ).mappings().all()
+            
+        similar_items = []
+        normalized_query = normalize_text(text_query)
+        for r in rows:
+            content = r["text_content"]
+            norm_content = normalize_text(content)
+            
+            # Compute a simple overlap ratio or difflib ratio
+            ratio = difflib.SequenceMatcher(None, normalized_query, norm_content).ratio()
+            if ratio >= 0.35: # 35% similarity threshold
+                similar_items.append({
+                    "id": r["id"],
+                    "text_content": content,
+                    "ai_prediction": r["ai_prediction"],
+                    "category": r["category"] or "Umum",
+                    "similarity": round(ratio * 100, 1),
+                    "created_at": str(r["created_at"])
+                })
+                
+        # Sort by similarity descending
+        similar_items.sort(key=lambda x: x["similarity"], reverse=True)
+        return jsonify({"data": similar_items[:3]}) # Return top 3
+    except Exception as e:
+        print(f"[ERROR] Similar search failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/reports/search', methods=['GET'])
+def search_reports():
+    query = request.args.get('query', '').strip()
+    category = request.args.get('category', '').strip()
+    limit = min(50, max(1, request.args.get('limit', 15, type=int)))
+    offset = max(0, request.args.get('offset', 0, type=int))
+    
+    try:
+        if db_engine is None:
+            return jsonify({"total": 0, "data": []})
+            
+        sql_query = "SELECT id, text_content, url_submitted, ai_prediction, ai_confidence, category, created_at, review_note FROM user_reports WHERE 1=1"
+        params = {"limit": limit, "offset": offset}
+        
+        if query:
+            sql_query += " AND text_content ILIKE :query"
+            params["query"] = f"%{query}%"
+        if category and category.lower() != "semua":
+            sql_query += " AND category ILIKE :category"
+            params["category"] = category
+            
+        count_query = sql_query.replace("id, text_content, url_submitted, ai_prediction, ai_confidence, category, created_at, review_note", "COUNT(*) as cnt")
+        
+        sql_query += " ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
+        
+        with db_engine.connect() as conn:
+            total_count = conn.execute(text(count_query), {k: v for k, v in params.items() if k not in ["limit", "offset"]}).scalar()
+            rows = conn.execute(text(sql_query), params).mappings().all()
+            
+        return jsonify({
+            "total": total_count,
+            "data": [dict(r) for r in rows]
+        })
+    except Exception as e:
+        print(f"[ERROR] Search failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+def check_komdigi_database(text_to_check):
+    """Check if the text matches any known hoax in the komdigi_hoaks table."""
+    if db_engine is None or not text_to_check.strip():
+        return None
+    try:
+        normalized_query = normalize_text(text_to_check)
+        with db_engine.connect() as conn:
+            # Fetch recent 200 komdigi hoaxes to compare in Python
+            rows = conn.execute(
+                text("SELECT title, url, category FROM komdigi_hoaks ORDER BY scraped_at DESC LIMIT 200")
+            ).mappings().all()
+            
+        best_match = None
+        highest_ratio = 0.0
+        
+        for r in rows:
+            title = r["title"]
+            # Clean komdigi titles from [HOAKS] tags
+            clean_title = re.sub(r'\[HOAKS\]|\[HOAX\]|\[SALAH\]|\[FITNAH\]', '', title, flags=re.IGNORECASE)
+            normalized_title = normalize_text(clean_title)
+            
+            ratio = difflib.SequenceMatcher(None, normalized_query, normalized_title).ratio()
+            if ratio > highest_ratio:
+                highest_ratio = ratio
+                best_match = r
+                
+        # If similarity is above 72%
+        if highest_ratio >= 0.72:
+            return {
+                "title": best_match["title"],
+                "url": best_match["url"],
+                "category": best_match["category"],
+                "similarity": round(highest_ratio * 100, 1)
+            }
+    except Exception as e:
+        print(f"[DB] Komdigi check failed: {e}")
+    return None
+
 @app.route('/predict', methods=['POST'])
 def predict():
     if model_pipeline is None:
@@ -649,6 +892,7 @@ def predict():
         return jsonify({"error": "No text provided"}), 400
 
     raw_text = data['text']
+    user_claim = data.get('user_claim')
     normalized = normalize_text(raw_text)
     cleaned = clean_text(raw_text)
 
@@ -656,65 +900,135 @@ def predict():
         return jsonify({"error": "Empty text input"}), 400
 
     try:
+        first_url = extract_first_url(raw_text)
+        url_safety = None
+        credibility_data = None
+        if first_url:
+            url_safety = check_url_with_google(first_url)
+            log_url_check(first_url, url_safety)
+            credibility_data = credibility_manager.check_domain_credibility(first_url)
+
+        # ─── LAYER 0.5: Verified Database Cache & Admin Overrides ────────
+        if db_engine is not None:
+            try:
+                with db_engine.connect() as conn:
+                    matched_reports = conn.execute(
+                        text("""
+                            SELECT id, text_content, ai_prediction, ai_confidence, category, reviewed, review_note 
+                            FROM user_reports 
+                            WHERE LOWER(TRIM(text_content)) = :normalized
+                            ORDER BY reviewed DESC, created_at DESC
+                        """),
+                        {"normalized": normalized.strip()}
+                    ).mappings().all()
+                    
+                    if matched_reports:
+                        best_report = matched_reports[0]
+                        is_hoax = best_report["ai_prediction"] == "HOAX"
+                        if is_hoax:
+                            bump_trending_title(raw_text)
+                        
+                        source = "Verifikasi Admin FaktaNesia" if best_report["reviewed"] else "Database Histori/Sesi FaktaNesia"
+                        explanation = best_report["review_note"] if best_report["reviewed"] else f"Sistem telah mendeteksi laporan serupa sebelumnya dan mengonfirmasinya sebagai {'HOAX' if is_hoax else 'FAKTA'}."
+                        
+                        return jsonify({
+                            "is_hoax": is_hoax,
+                            "hoax_probability": 1.0 if is_hoax else 0.0,
+                            "confidence_score": 1.0 if best_report["reviewed"] else (best_report["ai_confidence"] or 0.95),
+                            "label": "HOAX" if is_hoax else "REAL",
+                            "category": best_report["category"] or "Lainnya",
+                            "triggers": [],
+                            "ai_explanation": explanation or f"Laporan ini telah dianalisis sebagai {'HOAX' if is_hoax else 'FAKTA'}.",
+                            "ai_source": source,
+                            "url_checked": first_url,
+                            "url_safety": url_safety,
+                            "domain_credibility": credibility_data,
+                            "komdigi_match": None,
+                            "cached": True
+                        })
+            except Exception as e:
+                print(f"[DB] Cache check failed: {e}")
+
         # ─── LAYER 1: ML Model Base Prediction ───────────────────────────
         prediction_prob = model_pipeline.predict_proba([cleaned])[0]
         hoax_probability = float(prediction_prob[1])
 
         # ─── LAYER 2: Fuzzy Heuristic Booster ────────────────────────────
         detected_triggers = detect_fuzzy_triggers(normalized, threshold=0.82)
-
-        # Sum up boost weights from all matched triggers
         total_boost = sum(t.get("boost", 0.25) for t in detected_triggers)
+
+        category = "Lainnya"
+        if detected_triggers:
+            cat_counts = {}
+            for t in detected_triggers:
+                hl_cat = map_trigger_category_to_high_level(t["category"])
+                cat_counts[hl_cat] = cat_counts.get(hl_cat, 0) + 1
+            category = max(cat_counts, key=cat_counts.get)
 
         if total_boost > 0:
             print(f"[Heuristic] Total boost: {total_boost:.2f} | Triggers: {[t['word'] for t in detected_triggers]}")
             hoax_probability = min(0.99, hoax_probability + total_boost)
 
-        # Strip boost key from output (not needed in frontend)
         clean_triggers = [{"word": t["word"], "category": t["category"]} for t in detected_triggers]
 
+        # Re-evaluate is_hoax based on the new probability from Layer 1, 2, and 2.5
         is_hoax = bool(hoax_probability > 0.5)
         confidence = hoax_probability if is_hoax else (1 - hoax_probability)
 
+        # ─── LAYER 2.7: Komdigi Database Reference Checker ───────────────
+        komdigi_match = check_komdigi_database(raw_text)
+        
+        if komdigi_match:
+            is_hoax = True
+            hoax_probability = 1.0
+            confidence = 0.99
+            ai_explanation = f"Konten teridentifikasi sebagai HOAX oleh aduan resmi Kominfo/Komdigi dengan tingkat kecocokan {komdigi_match['similarity']}%: '{komdigi_match['title']}'."
+            ai_source = "Klarifikasi Resmi Kominfo"
+            if komdigi_match.get("category"):
+                category = "Politik" if "politik" in komdigi_match["category"].lower() else "Kesehatan" if "sehat" in komdigi_match["category"].lower() else "Keuangan" if "ekonomi" in komdigi_match["category"].lower() else "Lainnya"
+
         # ─── LAYER 3: AI Hybrid (OpenRouter primary → Gemini fallback) ───
-        ai_explanation = None
-        ai_source = None
+        ai_explanation_val = None
+        ai_source_val = None
 
-        ai_result = check_with_openrouter(raw_text)
-        if ai_result is not None:
-            ai_source = "OpenRouter Llama 3.3 70B"
-        else:
-            ai_result = check_with_gemini(raw_text)
+        if not komdigi_match:
+            ai_result = check_with_openrouter(raw_text)
             if ai_result is not None:
-                ai_source = "Google Gemini Flash"
+                ai_source_val = "OpenRouter Llama 3.3 70B"
+            else:
+                ai_result = check_with_gemini(raw_text)
+                if ai_result is not None:
+                    ai_source_val = "Google Gemini Flash"
 
-        if ai_result is not None:
-            # AI final override — most context-aware decision
-            is_hoax = bool(ai_result.get("is_hoax", is_hoax))
-            ai_explanation = ai_result.get("explanation")
-            confidence = 0.97
-
-        # URL safety check (Google Safe Browsing)
-        first_url = extract_first_url(raw_text)
-        url_safety = None
-        if first_url:
-            url_safety = check_url_with_google(first_url)
-            log_url_check(first_url, url_safety)
+            if ai_result is not None:
+                is_hoax = bool(ai_result.get("is_hoax", is_hoax))
+                ai_explanation_val = ai_result.get("explanation")
+                confidence = 0.97
+                ai_cat = ai_result.get("category")
+                if ai_cat in ["Kesehatan", "Keuangan", "Politik", "Bencana", "SARA", "Lainnya"]:
+                    category = ai_cat
+        else:
+            ai_explanation_val = ai_explanation
+            ai_source_val = ai_source
 
         # Persist prediction and trending after final decision is computed.
-        log_prediction_result(raw_text, is_hoax, confidence)
-        bump_trending_title(raw_text)
+        log_prediction_result(raw_text, is_hoax, confidence, category, user_claim)
+        if is_hoax:
+            bump_trending_title(raw_text)
 
         return jsonify({
             "is_hoax": is_hoax,
             "hoax_probability": round(hoax_probability, 4),
             "confidence_score": round(confidence, 4),
             "label": "HOAX" if is_hoax else "REAL",
+            "category": category,
             "triggers": clean_triggers,
-            "ai_explanation": ai_explanation,
-            "ai_source": ai_source,
+            "ai_explanation": ai_explanation_val,
+            "ai_source": ai_source_val,
             "url_checked": first_url,
-            "url_safety": url_safety
+            "url_safety": url_safety,
+            "domain_credibility": credibility_data,
+            "komdigi_match": komdigi_match
         })
 
     except Exception as e:

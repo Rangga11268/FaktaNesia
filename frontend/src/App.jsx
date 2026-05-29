@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -15,6 +15,7 @@ import {
   BookOpen,
   Trophy,
   Flame,
+  FileText,
 } from "lucide-react";
 import clsx from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -24,6 +25,8 @@ import RecentScams from "./components/RecentScams";
 import ReportModal from "./components/ReportModal";
 import RedFlags from "./components/RedFlags";
 import QuizWidget from "./components/QuizWidget";
+import AdminLogin from "./components/AdminLogin";
+import AdminDashboard from "./components/AdminDashboard";
 
 function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -78,15 +81,74 @@ function App() {
   // Sidebar Tab State
   const [activeSidebarTab, setActiveSidebarTab] = useState("trends"); // 'trends' | 'quiz'
 
+  // Admin States
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [adminToken, setAdminToken] = useState(() => {
+    return localStorage.getItem("faktanesia_admin_token") || "";
+  });
+  const [isAdmin, setIsAdmin] = useState(() => {
+    return !!localStorage.getItem("faktanesia_admin_token");
+  });
+
   // Stats State (Interactive feature)
   const [totalScannedWords, setTotalScannedWords] = useState(1480);
+  const [totalReportsAnalyses, setTotalReportsAnalyses] = useState(12);
   const [scanSpeed, setScanSpeed] = useState(0.42);
+  const [similarReports, setSimilarReports] = useState([]);
+
+  useEffect(() => {
+    axios
+      .get("/api/public-stats")
+      .then((res) => {
+        setTotalScannedWords(res.data.total_words);
+        setTotalReportsAnalyses(res.data.total_reports);
+        setScanSpeed(res.data.avg_speed);
+      })
+      .catch((e) => console.warn("Gagal memuat statistik publik:", e));
+  }, []);
+
+  // Encyclopedia State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchCategory, setSearchCategory] = useState("Semua");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchPage, setSearchPage] = useState(0);
+  const [searchTotal, setSearchTotal] = useState(0);
+  const [expandedCard, setExpandedCard] = useState(null);
+
+  const fetchSearchReports = async (pageIndex = 0) => {
+    setSearchLoading(true);
+    try {
+      const limit = 5;
+      const offset = pageIndex * limit;
+      const response = await axios.get(
+        `/api/reports/search?query=${encodeURIComponent(searchQuery)}&category=${encodeURIComponent(
+          searchCategory
+        )}&limit=${limit}&offset=${offset}`
+      );
+      setSearchResults(response.data.data || []);
+      setSearchTotal(response.data.total || 0);
+      setSearchPage(pageIndex);
+    } catch (err) {
+      console.error("Gagal melakukan pencarian aduan:", err);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // Auto trigger search when category changes or when entering tab
+  useEffect(() => {
+    if (activeTab === "encyclopedia") {
+      fetchSearchReports(0);
+    }
+  }, [activeTab, searchCategory]);
 
   const handlePredict = async (textToAnalyze = inputText) => {
     if (!textToAnalyze?.trim()) return;
     setLoading(true);
     setError(null);
     setResult(null);
+    setSimilarReports([]);
 
     // Calculate words count for statistics
     const wordCount = textToAnalyze.trim().split(/\s+/).length;
@@ -98,8 +160,20 @@ function App() {
       });
       setResult(response.data);
 
+      // Fetch similar reports
+      try {
+        const simResponse = await axios.get(
+          `/api/reports/similar?text=${encodeURIComponent(textToAnalyze)}`
+        );
+        setSimilarReports(simResponse.data.data || []);
+      } catch (simErr) {
+        console.error("Gagal memuat aduan serupa:", simErr);
+        setSimilarReports([]);
+      }
+
       // Update statistics live
       setTotalScannedWords((prev) => prev + wordCount);
+      setTotalReportsAnalyses((prev) => prev + 1);
       const endTime = performance.now();
       setScanSpeed(parseFloat(((endTime - startTime) / 1000).toFixed(2)));
     } catch (err) {
@@ -177,6 +251,37 @@ function App() {
     setIsReportOpen(true);
   };
 
+  const handleAdminLogin = (token) => {
+    localStorage.setItem("faktanesia_admin_token", token);
+    setAdminToken(token);
+    setIsAdmin(true);
+  };
+
+  const handleAdminLogout = () => {
+    localStorage.removeItem("faktanesia_admin_token");
+    setAdminToken("");
+    setIsAdmin(false);
+    setShowAdminLogin(false);
+  };
+
+  if (isAdmin) {
+    return <AdminDashboard adminToken={adminToken} onLogout={handleAdminLogout} />;
+  }
+
+  if (showAdminLogin && !isAdmin) {
+    return (
+      <div className="min-h-screen text-[#18181b] p-4 md:p-6 bg-[#f5f4ef] flex flex-col items-center justify-center relative">
+        <button 
+          onClick={() => setShowAdminLogin(false)}
+          className="absolute top-6 left-6 font-bold uppercase text-xs border-b-2 border-black hover:-translate-y-0.5 transition-transform"
+        >
+          ← Kembali ke Detektor
+        </button>
+        <AdminLogin onLogin={handleAdminLogin} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen text-[#18181b] p-4 md:p-6 bg-[#f5f4ef] flex flex-col items-center justify-start gap-4">
       <ReportModal
@@ -252,7 +357,7 @@ function App() {
           <div className="brutalist-card p-6 md:p-8 min-h-[460px] flex flex-col relative overflow-hidden bg-white">
             {/* Header with Clipper Tabs */}
             <div className="flex justify-between items-center mb-6 border-b-2 border-black/10 pb-4">
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setActiveTab("text")}
                   className={cn(
@@ -262,7 +367,7 @@ function App() {
                       : "text-slate-500 border-transparent hover:text-black"
                   )}
                 >
-                  <Search size={16} /> Arsip Teks
+                  <Search size={16} /> Pindai Teks
                 </button>
                 <button
                   onClick={() => setActiveTab("image")}
@@ -274,6 +379,17 @@ function App() {
                   )}
                 >
                   <ScanText size={16} /> Pindai Gambar
+                </button>
+                <button
+                  onClick={() => setActiveTab("encyclopedia")}
+                  className={cn(
+                    "flex items-center gap-2 font-heading px-4 py-1.5 transition text-base border-2 font-bold",
+                    activeTab === "encyclopedia"
+                      ? "bg-zinc-900 text-white border-zinc-900 shadow-[2px_2px_0px_rgba(0,0,0,0.15)]"
+                      : "text-slate-500 border-transparent hover:text-black"
+                  )}
+                >
+                  <BookOpen size={16} /> Ensiklopedia Hoax
                 </button>
               </div>
 
@@ -317,7 +433,7 @@ function App() {
 
                         <div className="relative z-10">
                           <span className="text-[9px] block font-bold uppercase tracking-widest opacity-80">
-                            VERDIK SISTEM
+                            VERDIK SISTEM {result.category ? `• KATEGORI: ${result.category.toUpperCase()}` : ""}
                           </span>
                           <span className="font-heading text-2xl font-black italic tracking-tighter uppercase block leading-none mt-1">
                             {result.is_hoax ? "DUSTA / HOAX" : "ABSAH / FAKTA"}
@@ -353,6 +469,33 @@ function App() {
                     </button>
                   </div>
 
+                  {/* Kominfo Clarification Match Box */}
+                  {result && result.komdigi_match && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 p-3.5 border-2 border-black bg-sky-50 text-[11px] font-mono shadow-[2px_2px_0px_rgba(0,0,0,1)] text-left flex flex-col gap-1.5"
+                    >
+                      <div className="flex items-center gap-1.5 font-bold text-zinc-950">
+                        <ShieldCheck size={14} className="text-sky-600" />
+                        <span>RUJUKAN RESMI KOMINFO TERDETEKSI (Kecocokan {result.komdigi_match.similarity}%)</span>
+                      </div>
+                      <p className="text-zinc-800 font-bold leading-relaxed">
+                        "{result.komdigi_match.title}"
+                      </p>
+                      {result.komdigi_match.url && (
+                        <a 
+                          href={result.komdigi_match.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-[9px] font-bold text-sky-700 hover:underline mt-1"
+                        >
+                          Buka Klarifikasi Resmi Kominfo →
+                        </a>
+                      )}
+                    </motion.div>
+                  )}
+
                   {/* AI Explanation Box */}
                   {result && result.ai_explanation && (
                     <motion.div
@@ -363,7 +506,7 @@ function App() {
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-1.5 font-bold text-zinc-900">
                           <Cpu size={12} className="text-zinc-800" />
-                          <span>💡 ANALISIS SEMANTIK AI HYBRID</span>
+                          <span>ANALISIS SEMANTIK AI HYBRID</span>
                         </div>
                         {result.ai_source && (
                           <span className="text-[8px] text-slate-500 border border-black/20 px-1.5 py-0.5 bg-white">
@@ -376,8 +519,100 @@ function App() {
                       </p>
                     </motion.div>
                   )}
+
+                  {/* Domain Credibility & URL Checker Box */}
+                  {result && (result.domain_credibility || result.url_checked) && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={cn(
+                        "mt-4 p-3.5 border-2 border-black text-[11px] font-mono shadow-[2px_2px_0px_rgba(0,0,0,1)] text-left flex flex-col gap-2",
+                        result.domain_credibility?.typosquatting_warning || result.url_safety === "MALWARE"
+                          ? "bg-rose-50 border-rose-600"
+                          : result.domain_credibility?.is_trusted
+                          ? "bg-emerald-50 border-emerald-600"
+                          : "bg-[#f5f4ef]"
+                      )}
+                    >
+                      <div className="flex items-center gap-1.5 font-bold text-zinc-900">
+                        <ScanText size={12} className="text-zinc-800" />
+                        <span>ANALISIS SUMBER URL</span>
+                      </div>
+                      
+                      <div className="flex flex-col gap-1.5 mt-1">
+                        <div className="flex justify-between border-b border-black/10 pb-1.5">
+                          <span className="text-slate-500">Tautan Terdeteksi:</span>
+                          <span className="font-bold truncate max-w-[200px]" title={result.url_checked}>
+                            {result.url_checked}
+                          </span>
+                        </div>
+                        
+                        {result.domain_credibility && (
+                          <>
+                            <div className="flex justify-between border-b border-black/10 pb-1.5">
+                              <span className="text-slate-500">Reputasi Domain:</span>
+                              <span className={cn(
+                                "font-bold px-1.5 border border-black/20",
+                                result.domain_credibility.is_trusted ? "bg-emerald-200 text-emerald-800" :
+                                result.domain_credibility.is_blacklisted ? "bg-rose-200 text-rose-800" : "bg-slate-200 text-slate-800"
+                              )}>
+                                {result.domain_credibility.is_trusted ? "TERPERCAYA" : 
+                                 result.domain_credibility.is_blacklisted ? "MENCURIGAKAN" : "NETRAL"}
+                              </span>
+                            </div>
+
+                            {result.domain_credibility.typosquatting_warning && (
+                              <div className="flex gap-2 items-start bg-rose-100 p-2 border border-rose-300 text-rose-800 font-bold mt-1">
+                                <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                                <span>{result.domain_credibility.typosquatting_warning}</span>
+                              </div>
+                            )}
+                          </>
+                        )}
+
+                        {result.url_safety && (
+                          <div className="flex gap-2 items-start bg-rose-100 p-2 border border-rose-300 text-rose-800 font-bold mt-1">
+                            <ShieldAlert size={14} className="shrink-0 mt-0.5" />
+                            <span>Terdeteksi oleh Google Safe Browsing sebagai ancaman: {result.url_safety}</span>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Similar Laporan Warga Section */}
+                  {result && similarReports && similarReports.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 p-3.5 border-2 border-black bg-cyan-50 text-[11px] font-mono shadow-[2px_2px_0px_rgba(0,0,0,1)] text-left flex flex-col gap-2"
+                    >
+                      <div className="flex items-center gap-1.5 font-bold text-zinc-950">
+                        <FileText size={12} className="text-zinc-900" />
+                        <span>LAPORAN WARGA SERUPA TERKAIT ({similarReports.length})</span>
+                      </div>
+                      <div className="flex flex-col gap-2 mt-1">
+                        {similarReports.map((report) => (
+                          <div key={report.id} className="p-2 border border-black bg-white flex flex-col gap-1 shadow-[1px_1px_0px_rgba(0,0,0,1)]">
+                            <div className="flex justify-between items-center text-[9px] border-b border-black/5 pb-1">
+                              <span className={cn(
+                                "font-bold px-1.5 border border-black/20 uppercase text-[8px]",
+                                report.ai_prediction === "HOAX" ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
+                              )}>
+                                {report.ai_prediction}
+                              </span>
+                              <span className="text-slate-500 font-bold">Kemiripan: {report.similarity}%</span>
+                            </div>
+                            <p className="text-zinc-700 italic font-mono text-[10px] line-clamp-2">
+                              "{report.text_content}"
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
                 </>
-              ) : (
+              ) : activeTab === "image" ? (
                 /* IMAGE TAB CONTENT */
                 <div className="flex flex-col h-full items-center justify-center border-2 border-dashed border-black/10 bg-slate-50 p-6 min-h-[250px] relative">
                   {selectedImage ? (
@@ -456,6 +691,128 @@ function App() {
                     </div>
                   )}
                 </div>
+              ) : (
+                /* ENCYCLOPEDIA TAB CONTENT */
+                <div className="flex flex-col h-full text-left font-mono">
+                  <p className="text-slate-500 text-[10px] mb-4 leading-relaxed">
+                    Arsip Pencarian Hoax. Temukan hoax dan disinformasi yang telah dilaporkan dan diverifikasi oleh sistem kecerdasan buatan FaktaNesia.
+                  </p>
+
+                  {/* Search controls */}
+                  <div className="flex gap-2 mb-4">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && fetchSearchReports(0)}
+                      placeholder="Cari kata kunci hoax (misal: bansos, blt)..."
+                      className="input-brutal flex-1 px-3 py-2 text-xs"
+                    />
+                    <button
+                      onClick={() => fetchSearchReports(0)}
+                      className="btn-brutal-solid px-4 py-2 text-xs font-bold shadow-[1.5px_1.5px_0px_rgba(0,0,0,1)] hover:shadow-[2.5px_2.5px_0px_rgba(0,0,0,1)]"
+                    >
+                      Cari
+                    </button>
+                  </div>
+
+                  {/* Category filters */}
+                  <div className="flex flex-wrap gap-1.5 mb-4">
+                    {["Semua", "Kesehatan", "Keuangan", "Politik", "Bencana", "SARA", "Lainnya"].map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setSearchCategory(cat)}
+                        className={cn(
+                          "px-2.5 py-1 border border-black text-[9px] font-bold uppercase transition",
+                          searchCategory === cat
+                            ? "bg-zinc-900 text-white"
+                            : "bg-[#f5f4ef] text-zinc-700 hover:bg-[#e4e3de]"
+                        )}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Search results list */}
+                  <div className="flex-1 overflow-y-auto space-y-3.5 pr-1 max-h-[350px]">
+                    {searchLoading ? (
+                      <div className="text-center py-8 text-xs text-slate-400 border-2 border-dashed border-black/10 bg-slate-50">
+                        Mencari data...
+                      </div>
+                    ) : searchResults.length === 0 ? (
+                      <div className="text-center py-8 text-xs text-slate-400 border-2 border-dashed border-black/10 bg-slate-50">
+                        Tidak ada arsip yang cocok.
+                      </div>
+                    ) : (
+                      searchResults.map((report) => {
+                        const isExpanded = expandedCard === report.id;
+                        return (
+                          <div
+                            key={report.id}
+                            className="p-3 border-2 border-black bg-white shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-[3px_3px_0px_rgba(0,0,0,1)] transition-all flex flex-col gap-1.5"
+                          >
+                            <div className="flex justify-between items-center text-[9px] border-b border-black/5 pb-1">
+                              <span className="font-bold px-1.5 py-0.5 bg-[#f5f4ef] border border-black/20 uppercase text-[8px]">
+                                {report.category || "Umum"}
+                              </span>
+                              <span
+                                className={cn(
+                                  "font-bold px-1.5 border border-black/20 uppercase text-[8px]",
+                                  report.ai_prediction === "HOAX" ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
+                                )}
+                              >
+                                {report.ai_prediction}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-800 font-bold leading-relaxed">
+                              "{report.text_content}"
+                            </p>
+                            
+                            {isExpanded && (
+                              <div className="mt-2 pt-2 border-t border-dashed border-black/10 text-[10px] text-slate-700 flex flex-col gap-1.5 bg-yellow-50/50 p-2 border border-black/5">
+                                <div className="font-bold text-zinc-950">HASIL VERIFIKASI:</div>
+                                <p className="italic text-zinc-600">
+                                  {report.review_note || "Laporan teridentifikasi sistem sebagai hoax/disinformasi berdasarkan pola kalimat dan sumber domain."}
+                                </p>
+                              </div>
+                            )}
+
+                            <button
+                              onClick={() => setExpandedCard(isExpanded ? null : report.id)}
+                              className="text-[9px] font-bold text-left hover:underline text-slate-500 uppercase mt-1 flex items-center gap-1"
+                            >
+                              {isExpanded ? "Tutup Detail" : "Baca Penjelasan →"}
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Search pagination */}
+                  {searchTotal > 5 && (
+                    <div className="flex justify-between items-center mt-4 pt-3 border-t border-black/10 text-[9px] font-bold">
+                      <span className="uppercase text-slate-500">Total: {searchTotal} Hasil</span>
+                      <div className="flex gap-2">
+                        <button
+                          disabled={searchPage === 0 || searchLoading}
+                          onClick={() => fetchSearchReports(searchPage - 1)}
+                          className="px-2 py-1 border border-black hover:bg-zinc-100 disabled:opacity-50"
+                        >
+                          PREV
+                        </button>
+                        <button
+                          disabled={(searchPage + 1) * 5 >= searchTotal || searchLoading}
+                          onClick={() => fetchSearchReports(searchPage + 1)}
+                          className="px-2 py-1 border border-black hover:bg-zinc-100 disabled:opacity-50"
+                        >
+                          NEXT
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
@@ -520,9 +877,9 @@ function App() {
                         </span>
                       </div>
                       <div className="border-2 border-black p-2 bg-[#f5f4ef]/50 flex flex-col items-center justify-center">
-                        <span className="text-[8px] font-bold text-slate-400">KATA</span>
-                        <span className="font-bold text-[10px] text-zinc-900 mt-0.5 flex items-center gap-0.5">
-                          <BookOpen size={8} /> {totalScannedWords}
+                        <span className="text-[8px] font-bold text-slate-400">LAPORAN</span>
+                        <span className="font-bold text-[10px] text-zinc-900 mt-0.5 flex items-center gap-0.5" title={`${totalScannedWords} kata dipindai`}>
+                          <BookOpen size={8} /> {totalReportsAnalyses}
                         </span>
                       </div>
                     </div>
@@ -544,6 +901,7 @@ function App() {
           <span className="block sm:inline mt-1 sm:mt-0">SISTEM ANALISIS MULTI-KLASIFIKASI AI</span>
         </div>
         <div className="flex gap-4">
+          <button onClick={() => setShowAdminLogin(true)} className="border-b border-[#18181b] pb-0.5 hover:text-black hover:font-bold transition-all uppercase">Admin Portal</button>
           <span className="border-b border-[#18181b] pb-0.5">TF-IDF BOOSTER v1.4</span>
           <span className="border-b border-[#18181b] pb-0.5">EST. 2026</span>
         </div>
